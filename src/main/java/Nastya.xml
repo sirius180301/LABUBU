@@ -1,18 +1,24 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <routes>
     <route>
-        <id>123</id>
-        <name>MyRoute</name>
+        <id>1</id>
+        <name>Маршрут 1</name>
         <coordinates>
             <x>10</x>
-            <y>20.0</y>
+            <y>20.5</y>
         </coordinates>
-        <location>
-            <x>30</x>
-            <y>40.0</y>
-            <z>50</z>
-        </location>
+        <creationDate>2023-10-25T12:30:45</creationDate>
+        <from>
+            <x>100</x>
+            <y>50.5</y>
+            <z>30</z>
+        </from>
+        <to>
+            <x>200</x>
+            <y>60.5</y>
+            <z>40</z>
+        </to>
+        <distance>1500</distance>
     </route>
 
 </routes>
-        
