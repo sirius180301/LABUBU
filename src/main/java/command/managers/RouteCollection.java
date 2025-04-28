@@ -27,7 +27,7 @@ public class RouteCollection {
     }
 
     public LinkedHashSet<Route> getRoute() {
-        return new LinkedHashSet<>(routes);
+        return (routes);
     }
 
     public void setRoutes(LinkedHashSet<Route> routes) {
