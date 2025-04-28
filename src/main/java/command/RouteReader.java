@@ -106,7 +106,7 @@ public class RouteReader {
 
         return new Location(x, y, z);
     }
-    private static long readDistance(InputStream in, PrintStream out, String locationName ) {
+    /*private static long readDistance(InputStream in, PrintStream out, String locationName ) {
         Scanner scanner = new Scanner(in);
         long distance = 0;
         try {
@@ -118,9 +118,9 @@ public class RouteReader {
             out.println(ANSI_RED + "Неверный формат координаты " + locationName + "Пожалуйста, введите целое число." + ANSI_RESET);
         }
 
-        return distance;
+        return distance;*/
 
-    }
+
 
     private static long readLongCoordinate(InputStream in, PrintStream out, String coordinateName, String locationName) {
         Scanner scanner = new Scanner(in);
@@ -177,8 +177,5 @@ public class RouteReader {
     }
 
 
-    private static Dictance readDistance(InputStream in, PrintStream out, coordinateName) {
-        long x = readLongCoordinate(in, out, "X");
-        return new Location(x);
-    }
+
 }
