@@ -69,16 +69,15 @@ public class Route implements Comparable<Route> {
         this.distance = distance;
     }
 
-    public Route(long id, String name, Coordinates coordinates, Location from, Location to, Distance a) {
+
+
+    public Route(long id, String name, Coordinates coordinates, Location from, Location to) {
     }
 
     /**
      * Внутренний класс для построения маршрута (не используется в текущей реализации)
      */
-    protected static class RoutebBlder {
-        private static Location from;
-        private static Location to;
-    }
+
 
     /**
      * Возвращает идентификатор маршрута

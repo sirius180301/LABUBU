@@ -72,8 +72,9 @@ public class SaveCommand extends Command {
                 Files.newOutputStream(Paths.get(filePath)));
              OutputStreamWriter writer = new OutputStreamWriter(outputStream, "UTF-8")) {
 
-            marshaller.marshal(routeCollection, writer);  // Сериализуем и пишем в файл
+            marshaller.marshal(routeCollection, writer);// Сериализуем и пишем в файл
         }
+        System.out.println("Выполняется marshaller.marshal...");
     }
 }
 

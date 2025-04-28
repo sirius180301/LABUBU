@@ -3,7 +3,6 @@
 package command;
 
 import model.Coordinates;
-import model.Distance;
 import model.Location;
 import model.Route;
 import command.managers.RouteCollection;
@@ -25,7 +24,7 @@ public class RouteReader {
         Coordinates coordinates = null;
         Location from = null;
         Location to = null;
-        Distance a = null;
+        //Distance a = null;
 
         while (name == null) {
             out.print("Введите имя маршрута: ");
@@ -49,14 +48,14 @@ public class RouteReader {
         while (to == null) {
             to = readLocation(in, out, "to");
         }
-        while (a == null) {
-            to = readLocation(in, out, "distance");
-        }
+       // while (a == null) {
+         //   to = readLocation(in, out, "distance");
+        //}
 
        // Float distance = readDistance();
         long id = routeCollection.nextId;
 
-        return new Route(id, name, coordinates, from, to, a);
+        return new Route(id, name, coordinates, from, to);
     }
 
     private static Coordinates readCoordinates(InputStream in, PrintStream out) {
