@@ -15,9 +15,9 @@ import javax.xml.bind.Unmarshaller;
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Scanner;
-
 
 public class Main {
 
@@ -29,7 +29,6 @@ public class Main {
         HashMap<String, Command> map = new HashMap<>();
         RouteCollection routeCollection = new RouteCollection();
 
-
         HelpCommand.register(map);
         InfoCommand.register(map, routeCollection);
         ShowCommand.register(map, routeCollection);
@@ -37,7 +36,7 @@ public class Main {
         UpdateCommand.register(map, routeCollection);
         RemoveByIdCommand.register(map, routeCollection);
         ClearCommand.register(map, routeCollection);
-        SaveCommand.register(map, routeCollection);
+        SaveCommand.register(map, routeCollection);  // Зарегистрирована команда save
         ExecuteScriptCommand.register(map, routeCollection);
         ExitCommand.register(map);
         AddIfMaxCommand.register(map, routeCollection);
@@ -102,9 +101,12 @@ public class Main {
                 Command command = map.get(s[0]);
                 try {
                     command.execute(enviroment, System.out, System.in, commandsArgs);
-                    if (command.getName().equals("add") || command.getName().equals("update") || command.getName().equals("remove_by_id") || command.getName().equals("clear")) {
-                        saveData(filePath, routeCollection);
+                    // Сохраняем после каждой команды, которая изменяет коллекцию (добавление, изменение, удаление).
+                    // Также сохраняем после команды clear, т.к. она очищает коллекцию.
+                    if (command.getName().equals("add") || command.getName().equals("update") || command.getName().equals("remove_by_id") || command.getName().equals("clear") || command.getName().equals("save")) {
+                        saveData(filePath, routeCollection); // Используем filePath из main
                     }
+
                 } catch (CommandException e) {
                     System.err.println(ANSI_RED + e.getMessage() + ANSI_RESET);
                 } catch (Exception e) { //  Обрабатываем другие исключения, включая JAXBException и IOException
@@ -123,11 +125,13 @@ public class Main {
             throw new FileNotFoundException("Файл не существует или пуст: " + filePath);
         }
 
-        JAXBContext jaxbContext = JAXBContext.newInstance(RouteCollection.class);
+        JAXBContext jaxbContext = JAXBContext.newInstance(RouteCollection.class, Route.class, Coordinates.class, Location.class);
         Unmarshaller unmarshaller = jaxbContext.createUnmarshaller();
         try (InputStreamReader reader = new InputStreamReader(new FileInputStream(filePath), "UTF-8")) {
             RouteCollection loadedCollection = (RouteCollection) unmarshaller.unmarshal(reader);
-            routeCollection.getRoute().addAll(loadedCollection.getRoute());
+            if (loadedCollection != null && loadedCollection.getRoute() != null) { // Проверка на null
+                routeCollection.getRoute().addAll(loadedCollection.getRoute());
+            }
             routeCollection.manageDHashSet(); // Валидация ID после загрузки
         }
     }
@@ -140,33 +144,32 @@ public class Main {
             return;
         }
 
-        JAXBContext jaxbContext = null;
-        Marshaller marshaller = null;
-        BufferedOutputStream outputStream = null;
+        System.out.println("Попытка сохранения в файл: " + filePath);
+        System.out.println("Количество элементов: " + routeCollection.getRoute().size());
 
         try {
-            jaxbContext = JAXBContext.newInstance(RouteCollection.class, Route.class, Coordinates.class, Location.class);
-            marshaller = jaxbContext.createMarshaller();
+            JAXBContext jaxbContext = JAXBContext.newInstance(
+                    RouteCollection.class, Route.class, Coordinates.class, Location.class
+            );
+            Marshaller marshaller = jaxbContext.createMarshaller();
             marshaller.setProperty(Marshaller.JAXB_FORMATTED_OUTPUT, true);
             marshaller.setProperty(Marshaller.JAXB_ENCODING, "UTF-8");
 
-            outputStream = new BufferedOutputStream(Files.newOutputStream(Path.of(filePath)));
-            marshaller.marshal(routeCollection, new OutputStreamWriter(outputStream, "UTF-8"));
-            System.out.println("Данные успешно сохранены в файл: " + filePath);
-
-        } catch (JAXBException e) {
-            System.err.println(ANSI_RED + "Ошибка при сериализации в XML: " + e.getMessage() + ANSI_RESET);
-        } catch (IOException e) {
-            System.err.println(ANSI_RED + "Ошибка при записи в файл: " + e.getMessage() + ANSI_RESET);
-        } finally {
-            // Ensure outputStream is closed even if exceptions occur
-            if (outputStream != null) {
-                try {
-                    outputStream.close();
-                } catch (IOException e) {
-                    System.err.println(ANSI_RED + "Error closing output stream: " + e.getMessage() + ANSI_RESET);
-                }
+            // Создаём файл, если его нет
+            File file = new File(filePath);
+            if (!file.exists()) {
+                file.createNewFile();
             }
+
+            // Сохраняем данные
+            try (OutputStream outputStream = Files.newOutputStream(Path.of(filePath));
+                 OutputStreamWriter writer = new OutputStreamWriter(outputStream, "UTF-8")) {
+                marshaller.marshal(routeCollection, writer);
+                System.out.println("Данные успешно сохранены в файл: " + filePath);
+            }
+        } catch (JAXBException | IOException e) {
+            System.err.println("Ошибка при сохранении: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 }
