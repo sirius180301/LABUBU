@@ -27,6 +27,8 @@ public class Main {
     public static void main(String[] args) {
 
         Scanner in = new Scanner(System.in);
+
+
         HashMap<String, Command> map = new HashMap<>();
         RouteCollection routeCollection = new RouteCollection();
         GeneraterID generaterID = new GeneraterID();
@@ -87,26 +89,38 @@ public class Main {
 
 
         while (in.hasNextLine()) {
-            String line = in.nextLine();
-            String[] s = line.split(" ");
-            String[] commandsArgs = new String[s.length - 1];
-            System.arraycopy(s, 1, commandsArgs, 0, commandsArgs.length);
-            if (map.containsKey(s[0])) {
-                Command command = map.get(s[0]);
-                try {
-                    command.execute(enviroment, System.out, System.in, commandsArgs);
-                    if (command.getName().equals("add") || command.getName().equals("update") || command.getName().equals("remove_by_id") || command.getName().equals("clear")) {
-                        saveData(filePath, routeCollection);
-                    }
-                } catch (CommandException e) {
-                    System.err.println(e.getMessage());
-                } catch (JAXBException | IOException e) {
-                    throw new RuntimeException(e);
+
+            while (true) {
+                System.out.print("> "); // Добавляем знак > перед вводом команды
+                System.out.flush(); // Обеспечиваем немедленный вывод
+                if (!in.hasNextLine()) {
+                    break; // Завершаем цикл, если ввод завершен
                 }
-            } else {
-                System.err.println("Неизвестная команда: " + s[0]);
-                System.out.println("Введите 'help' для просмотра доступных команд.");
-            }
+                String line = in.nextLine().trim();
+                if (line.isEmpty()) {
+                    continue; // Пропускаем пустые строки
+                }
+
+                String[] s = line.split(" ");
+                String[] commandsArgs = new String[s.length - 1];
+                System.arraycopy(s, 1, commandsArgs, 0, commandsArgs.length);
+
+                if (map.containsKey(s[0])) {
+                    Command command = map.get(s[0]);
+                    try {
+                        command.execute(enviroment, System.out, System.in, commandsArgs);
+                        if (command.getName().equals("add") || command.getName().equals("update") || command.getName().equals("remove_by_id") || command.getName().equals("clear")) {
+                            saveData(filePath, routeCollection);
+                        }
+                    } catch (CommandException e) {
+                        System.err.println(e.getMessage());
+                    } catch (JAXBException | IOException e) {
+                        throw new RuntimeException(e);
+                    }
+                } else {
+                    System.err.println("Неизвестная команда: " + s[0]);
+                    System.out.println("Введите 'help' для просмотра доступных команд.");
+                }}
         }
     }
 
