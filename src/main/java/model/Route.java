@@ -69,6 +69,9 @@ public class Route implements Comparable<Route> {
         this.distance = distance;
     }
 
+    public Route(long id, String name, Coordinates coordinates, Location from, Location to, Distance a) {
+    }
+
     /**
      * Внутренний класс для построения маршрута (не используется в текущей реализации)
      */

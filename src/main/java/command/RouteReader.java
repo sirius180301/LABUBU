@@ -49,14 +49,14 @@ public class RouteReader {
         while (to == null) {
             to = readLocation(in, out, "to");
         }
-        while (distance == null) {
+        while (a == null) {
             to = readLocation(in, out, "distance");
         }
 
        // Float distance = readDistance();
         long id = routeCollection.nextId;
 
-        return new Route(id, name, coordinates, from, to, distance);
+        return new Route(id, name, coordinates, from, to, a);
     }
 
     private static Coordinates readCoordinates(InputStream in, PrintStream out) {
@@ -106,7 +106,7 @@ public class RouteReader {
 
         return new Location(x, y, z);
     }
-    private static Distance readDistance(InputStream in, PrintStream out,String locationName ) {
+    private static long readDistance(InputStream in, PrintStream out, String locationName ) {
         Scanner scanner = new Scanner(in);
         long distance = 0;
         try {
@@ -115,10 +115,10 @@ public class RouteReader {
           distance = Long.parseLong(scanner.nextLine().trim());
             break;
         } catch (NumberFormatException e) {
-            out.println(ANSI_RED + "Неверный формат координаты " + coordinateName + " для Location " + locationName + ". Пожалуйста, введите целое число." + ANSI_RESET);
+            out.println(ANSI_RED + "Неверный формат координаты " + locationName + "Пожалуйста, введите целое число." + ANSI_RESET);
         }
-    }
-        return coordinate;
+
+        return distance;
 
     }
 
