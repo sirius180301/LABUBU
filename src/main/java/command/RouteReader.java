@@ -1,5 +1,4 @@
 
-
 package command;
 
 import model.Coordinates;
@@ -76,16 +75,17 @@ public class RouteReader {
                 out.flush();
                 String yStr = scanner.nextLine().trim();
                 if (yStr.isEmpty()) {
-                    out.println(ANSI_RED + "Координата Y не может быть null." + ANSI_RESET);
+                    out.println(ANSI_RED + "Координата Y не может быть null. Пожалуйста, введите координату еще раз." + ANSI_RESET);
                 } else {
                     y = Double.parseDouble(yStr);
+                }
+                if (y == null) {
+                    out.println(ANSI_RED + "Координата Y не может быть null. Пожалуйста, введите координату еще раз." + ANSI_RESET);
                 }
             } catch (NumberFormatException e) {
                 out.println(ANSI_RED + "Неверный формат координаты Y. Пожалуйста, введите число с плавающей точкой." + ANSI_RESET);
             }
-            if (y == null) {
-                out.println(ANSI_RED + "Координата Y не может быть null. Пожалуйста, введите координату еще раз." + ANSI_RESET);
-            }
+
         }
 
         return new Coordinates(x, y);
@@ -136,16 +136,18 @@ public class RouteReader {
                 out.flush();
                 String input = scanner.nextLine().trim();
                 if (input.isEmpty()) {
-                    out.println(ANSI_RED + "Координата Y не может быть null." + ANSI_RESET);
+                    out.println(ANSI_RED + "Координата Y не может быть null. Пожалуйста, введите координату еще раз." + ANSI_RESET);
                 } else {
                     coordinate = Double.parseDouble(input);
                 }
+
+
             } catch (NumberFormatException e) {
                 out.println(ANSI_RED + "Неверный формат координаты " + coordinateName + " для Location " + locationName + ". Пожалуйста, введите число с плавающей точкой." + ANSI_RESET);
             }
-            if (coordinate == null) {
+            if(coordinate == null && !scanner.nextLine().trim().isEmpty())
                 out.println(ANSI_RED + "Координата Y не может быть null. Пожалуйста, введите координату еще раз." + ANSI_RESET);
-            }
+
         }
         return coordinate;
     }
