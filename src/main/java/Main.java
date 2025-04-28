@@ -94,7 +94,7 @@ public class Main {
                 System.out.print("> "); // Добавляем знак > перед вводом команды
                 System.out.flush(); // Обеспечиваем немедленный вывод
                 if (!in.hasNextLine()) {
-                    break; // Завершаем цикл, если ввод завершен
+                    break;
                 }
                 String line = in.nextLine().trim();
                 if (line.isEmpty()) {
