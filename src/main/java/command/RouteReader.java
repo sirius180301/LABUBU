@@ -3,6 +3,7 @@
 package command;
 
 import model.Coordinates;
+import model.Distance;
 import model.Location;
 import model.Route;
 import command.managers.RouteCollection;
@@ -24,6 +25,7 @@ public class RouteReader {
         Coordinates coordinates = null;
         Location from = null;
         Location to = null;
+        Distance a = null;
 
         while (name == null) {
             out.print("Введите имя маршрута: ");
@@ -47,8 +49,11 @@ public class RouteReader {
         while (to == null) {
             to = readLocation(in, out, "to");
         }
+        while (distance == null) {
+            to = readLocation(in, out, "distance");
+        }
 
-        Float distance = calculateDistance(from, to);
+       // Float distance = readDistance();
         long id = routeCollection.nextId;
 
         return new Route(id, name, coordinates, from, to, distance);
@@ -82,7 +87,7 @@ public class RouteReader {
                     y = Double.parseDouble(yStr);
                 } catch (NumberFormatException e) {
                     out.println(ANSI_RED + "Неверный формат координаты Y. Пожалуйста, введите число с плавающей точкой." + ANSI_RESET);
-                    //y = null;  <- Important:  Don't assign y to null here.  It's already null.
+
 
                 }
 
@@ -100,6 +105,21 @@ public class RouteReader {
         int z = readIntCoordinate(in, out, "Z", locationName);
 
         return new Location(x, y, z);
+    }
+    private static Distance readDistance(InputStream in, PrintStream out,String locationName ) {
+        Scanner scanner = new Scanner(in);
+        long distance = 0;
+        try {
+            out.print("Введите distance " + locationName);
+            out.flush();
+          distance = Long.parseLong(scanner.nextLine().trim());
+            break;
+        } catch (NumberFormatException e) {
+            out.println(ANSI_RED + "Неверный формат координаты " + coordinateName + " для Location " + locationName + ". Пожалуйста, введите целое число." + ANSI_RESET);
+        }
+    }
+        return coordinate;
+
     }
 
     private static long readLongCoordinate(InputStream in, PrintStream out, String coordinateName, String locationName) {
@@ -157,10 +177,8 @@ public class RouteReader {
     }
 
 
-    private static Float calculateDistance(Location from, Location to) {
-        double xDiff = from.getX() - to.getX();
-        double yDiff = from.getY() - to.getY();
-        double zDiff = from.getZ() - to.getZ();
-        return (float) Math.sqrt(xDiff * xDiff + yDiff * yDiff + zDiff * zDiff);
+    private static Dictance readDistance(InputStream in, PrintStream out, coordinateName) {
+        long x = readLongCoordinate(in, out, "X");
+        return new Location(x);
     }
 }
