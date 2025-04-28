@@ -17,7 +17,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Scanner;
-import command.managers.GeneraterID;
 
 
 public class Main {
@@ -29,7 +28,7 @@ public class Main {
         Scanner in = new Scanner(System.in);
         HashMap<String, Command> map = new HashMap<>();
         RouteCollection routeCollection = new RouteCollection();
-        GeneraterID generaterID = new GeneraterID();
+
 
         HelpCommand.register(map);
         InfoCommand.register(map, routeCollection);

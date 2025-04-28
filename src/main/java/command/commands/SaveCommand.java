@@ -1,12 +1,8 @@
 package command.commands;
 
-import command.RouteReader;
 import command.base.Command;
 import command.base.Enviroment;
 import command.exeptions.CommandException;
-import command.managers.DateAdapter;
-import command.managers.GeneraterID;
-import command.managers.LocalDateTimeAdapter;
 import command.managers.RouteCollection;
 import model.Coordinates;
 import model.Location;
@@ -16,9 +12,7 @@ import javax.xml.bind.JAXBContext;
 import javax.xml.bind.JAXBException;
 import javax.xml.bind.Marshaller;
 import java.io.*;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.HashMap;
 

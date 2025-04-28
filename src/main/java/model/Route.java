@@ -1,3 +1,4 @@
+
 package model;
 
 import java.time.LocalDateTime;
@@ -24,9 +25,7 @@ public class Route implements Comparable<Route> {
      */
     private long id;
 
-    /**
-     * Название маршрута (не может быть null или пустым)
-     */
+    /** Название маршрута (не может быть null или пустым) */
     private String name;
 
     /** Координаты маршрута (не могут быть null) */
@@ -115,7 +114,6 @@ public class Route implements Comparable<Route> {
 
     /**
      * Возвращает координаты маршрута
-     *
      * @return объект Coordinates
      */
     @XmlElement(name = "coordinates")
@@ -196,7 +194,6 @@ public class Route implements Comparable<Route> {
 
     /**
      * Устанавливает расстояние маршрута
-     *
      * @param distance новое расстояние
      */
     public void setDistance(Float distance) {

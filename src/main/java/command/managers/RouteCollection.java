@@ -2,7 +2,7 @@ package command.managers;
 
 import model.Route;
 
-import javax.xml.bind.annotation.*;
+import javax.xml.bind.annotation.XmlRootElement;
 import java.time.LocalDateTime;
 import java.util.*;
 
@@ -10,21 +10,15 @@ import java.util.*;
  * Класс RouteCollection представляет собой коллекцию маршрутов.
  * Он хранит информацию о времени создания коллекции и предоставляет методы для управления маршрутами.
  */
-@XmlRootElement(name = "routes") // Имя корневого элемента XML
-//@XmlAccessorType(XmlAccessType.FIELD)
+@XmlRootElement(name = "routes")
 public class RouteCollection {
-    //@XmlElement(name = "route")
-    private LinkedHashSet<Route> routes; // Переименовано для ясности
 
+    private LinkedHashSet<Route> routes;
     private final LocalDateTime creationDate;
-    private final GeneraterID generatorID; // Исправлено название класса
+    public long nextId = 1; // Следующий доступный ID
 
-    /**
-     * Конструктор, который инициализирует коллекцию маршрутов и устанавливает дату создания.
-     */
     public RouteCollection() {
         this.creationDate = LocalDateTime.now();
-        this.generatorID = new GeneraterID();
         this.routes = new LinkedHashSet<>();
     }
 
@@ -32,12 +26,8 @@ public class RouteCollection {
         return creationDate;
     }
 
-    public GeneraterID getGeneratorID() {
-        return generatorID;
-    }
-
     public LinkedHashSet<Route> getRoute() {
-        return new LinkedHashSet<>(routes); // Возвращаем копию для защиты от изменений
+        return new LinkedHashSet<>(routes);
     }
 
     public void setRoutes(LinkedHashSet<Route> routes) {
@@ -45,15 +35,18 @@ public class RouteCollection {
     }
 
     public void add(Route route) {
+        route.setId(nextId++);
         this.routes.add(route);
     }
 
     public void removeById(long id) {
-        this.routes.removeIf(route -> route.getId() == id);
+        routes.removeIf(route -> route.getId() == id);
+        reassignIds();
     }
 
     public void clear() {
         this.routes.clear();
+        nextId = 1; // Сбрасываем ID при очистке
     }
 
     @Override
@@ -65,9 +58,6 @@ public class RouteCollection {
                 '}';
     }
 
-    /**
-     * Сортирует коллекцию маршрутов.
-     */
     public void sortRouteCollection() {
         List<Route> routeList = new ArrayList<>(routes);
         Collections.sort(routeList);
@@ -78,36 +68,27 @@ public class RouteCollection {
         return routes.iterator();
     }
 
+    private void reassignIds() {
+        nextId = 1;
+        LinkedHashSet<Route> newRoutes = new LinkedHashSet<>();
+        for (Route route : routes) {
+            route.setId(nextId++);
+            newRoutes.add(route);
+        }
+        routes = newRoutes;
+    }
+
     /**
      * Управляет дублирующимися ID в коллекции маршрутов.
      * Если обнаружены дублирующиеся ID, они будут перегенерированы.
      */
     public void manageDHashSet() {
-        Set<Long> existingIds = new HashSet<>();
-        List<Route> routesToRemove = new ArrayList<>();
-
+        nextId = 1;
+        LinkedHashSet<Route> newRoutes = new LinkedHashSet<>();
         for (Route route : routes) {
-            if (existingIds.contains(route.getId())) {
-                System.err.println("Обнаружен дублирующийся ID: " + route.getId() + ". Перегенерирую...");
-                routesToRemove.add(route);
-            } else {
-                existingIds.add(route.getId());
-            }
+            route.setId(nextId++);
+            newRoutes.add(route);
         }
-
-        // Удаляем дублирующиеся маршруты
-        routesToRemove.forEach(routes::remove);
-
-        for (Route routeToRemove : routesToRemove) {
-            long newId = generatorID.generateId();
-            Route newRoute = new Route(newId, routeToRemove.getName(),
-                    routeToRemove.getCoordinates(),
-                    routeToRemove.getFrom(),
-                    routeToRemove.getTo(),
-                    routeToRemove.getDistance());
-            newRoute.setCreationDate(routeToRemove.getCreationDate()); // Сохраняем дату создания
-            routes.add(newRoute);
-            System.out.println("Перегенерирован ID для маршрута " + routeToRemove.getName() + ". Новый ID: " + newId);
-        }
+        routes = newRoutes;
     }
 }

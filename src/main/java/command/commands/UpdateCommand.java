@@ -1,5 +1,6 @@
 package command.commands;
 
+import command.RouteReader;
 import command.base.Command;
 import command.base.Enviroment;
 import command.exeptions.CommandException;
@@ -10,8 +11,6 @@ import java.io.InputStream;
 import java.io.PrintStream;
 import java.util.HashMap;
 import java.util.NoSuchElementException;
-
-import static command.RouteReader.readRoute;
 
 public class UpdateCommand extends Command {
     private final RouteCollection routeCollection;
@@ -39,7 +38,7 @@ public class UpdateCommand extends Command {
                 throw new CommandException("Маршрут с указанным id не найден.");
             }
 
-            Route updatedRoute = readRoute(in, out, routeCollection);
+            Route updatedRoute = RouteReader.readRoute(in, out, routeCollection);
             updatedRoute.setId(id);
 
             routeCollection.getRoute().remove(existingRoute);
