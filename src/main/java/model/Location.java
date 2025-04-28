@@ -32,7 +32,7 @@ public class Location {
     /**
      * Создает новый объект Location с указанными координатами
      *
-     * @param x координата x (долгота)
+     * @param x координата  (долгота)
      * @param y координата y (широта, не может быть null)
      * @param z координата z (высота)
      * @throws NullPointerException если координата y равна null
