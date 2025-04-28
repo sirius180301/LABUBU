@@ -1,4 +1,5 @@
 
+
 package command;
 
 import model.Coordinates;
@@ -70,43 +71,33 @@ public class RouteReader {
         }
 
         while (y == null) {
-            try {
-                out.print("Введите координату Y: ");
-                out.flush();
-                String yStr = scanner.nextLine().trim();
-                if (yStr.isEmpty()) {
-                    out.println(ANSI_RED + "Координата Y не может быть null. Пожалуйста, введите координату еще раз." + ANSI_RESET);
-                } else {
-                    y = Double.parseDouble(yStr);
-                }
-                if (y == null) {
-                    out.println(ANSI_RED + "Координата Y не может быть null. Пожалуйста, введите координату еще раз." + ANSI_RESET);
-                }
-            } catch (NumberFormatException e) {
-                out.println(ANSI_RED + "Неверный формат координаты Y. Пожалуйста, введите число с плавающей точкой." + ANSI_RESET);
-            }
+            out.print("Введите координату Y: ");
+            out.flush();
+            String yStr = scanner.nextLine().trim();
 
+            if (yStr.isEmpty()) {
+                out.println(ANSI_RED + "Координата Y не может быть null. Пожалуйста, введите координату еще раз." + ANSI_RESET);
+            } else {
+                try {
+                    y = Double.parseDouble(yStr);
+                } catch (NumberFormatException e) {
+                    out.println(ANSI_RED + "Неверный формат координаты Y. Пожалуйста, введите число с плавающей точкой." + ANSI_RESET);
+                    //y = null;  <- Important:  Don't assign y to null here.  It's already null.
+
+                }
+
+            }
         }
 
         return new Coordinates(x, y);
     }
 
+
+
     private static Location readLocation(InputStream in, PrintStream out, String locationName) {
         long x = readLongCoordinate(in, out, "X", locationName);
         Double y = readDoubleCoordinate(in, out, "Y", locationName);
-        Scanner scanner = new Scanner(in);
-        int z = 0;
-
-        while (true) {
-            try {
-                out.print("Введите координату Z для Location " + locationName + ": ");
-                out.flush();
-                z = Integer.parseInt(scanner.nextLine().trim());
-                break;
-            } catch (NumberFormatException e) {
-                out.println(ANSI_RED + "Неверный формат координаты Z для Location " + locationName + ". Пожалуйста, введите целое число." + ANSI_RESET);
-            }
-        }
+        int z = readIntCoordinate(in, out, "Z", locationName);
 
         return new Location(x, y, z);
     }
@@ -136,26 +127,40 @@ public class RouteReader {
                 out.flush();
                 String input = scanner.nextLine().trim();
                 if (input.isEmpty()) {
-                    out.println(ANSI_RED + "Координата Y не может быть null. Пожалуйста, введите координату еще раз." + ANSI_RESET);
-                } else {
+                    out.println(ANSI_RED + "Координата " + coordinateName + " не может быть null. Пожалуйста, введите координату еще раз." + ANSI_RESET);
+                }
+                else {
                     coordinate = Double.parseDouble(input);
                 }
-
 
             } catch (NumberFormatException e) {
                 out.println(ANSI_RED + "Неверный формат координаты " + coordinateName + " для Location " + locationName + ". Пожалуйста, введите число с плавающей точкой." + ANSI_RESET);
             }
-            if(coordinate == null && !scanner.nextLine().trim().isEmpty())
-                out.println(ANSI_RED + "Координата Y не может быть null. Пожалуйста, введите координату еще раз." + ANSI_RESET);
-
         }
         return coordinate;
     }
 
+    private static int readIntCoordinate(InputStream in, PrintStream out, String coordinateName, String locationName) {
+        Scanner scanner = new Scanner(in);
+        int coordinate = 0;
+        while (true) {
+            try {
+                out.print("Введите координату " + coordinateName + " для Location " + locationName + ": ");
+                out.flush();
+                coordinate = Integer.parseInt(scanner.nextLine().trim());
+                break;
+            } catch (NumberFormatException e) {
+                out.println(ANSI_RED + "Неверный формат координаты " + coordinateName + " для Location " + locationName + ". Пожалуйста, введите целое число." + ANSI_RESET);
+            }
+        }
+        return coordinate;
+    }
+
+
     private static Float calculateDistance(Location from, Location to) {
-        double dx = to.getX() - from.getX();
-        double dy = to.getY() - from.getY();
-        double dz = to.getZ() - from.getZ();
-        return (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
+        double xDiff = from.getX() - to.getX();
+        double yDiff = from.getY() - to.getY();
+        double zDiff = from.getZ() - to.getZ();
+        return (float) Math.sqrt(xDiff * xDiff + yDiff * yDiff + zDiff * zDiff);
     }
 }
