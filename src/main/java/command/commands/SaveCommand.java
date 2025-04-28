@@ -63,11 +63,8 @@ public class SaveCommand extends Command {
                 RouteCollection.class,
                 Route.class,
                 Coordinates.class,
-                Location.class,
-                GeneraterID.class,
-                RouteReader.class,
-                LocalDateTimeAdapter.class,
-                DateAdapter.class
+                Location.class
+
 
         );
 

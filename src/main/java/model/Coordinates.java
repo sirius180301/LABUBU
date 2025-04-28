@@ -5,37 +5,82 @@ import javax.xml.bind.annotation.XmlRootElement;
 import javax.xml.bind.annotation.XmlType;
 import java.util.Objects;
 
-@XmlRootElement(name = "coordinates") // Добавлено имя для XML
+/**
+ * Класс, представляющий координаты в двумерном пространстве.
+ * Используется для хранения координат маршрута.
+ * Поддерживает сериализацию в XML через JAXB.
+ */
+@XmlRootElement(name = "coordinates")
 @XmlType(propOrder = {"x", "y"})
 public class Coordinates {
 
+    /**
+     * Координата по оси X
+     */
     private int x;
 
+    /**
+     * Координата по оси Y (не может быть null)
+     */
     private Double y;
 
+    /**
+     * Конструктор класса Coordinates.
+     *
+     * @param x координата по оси X
+     * @param y координата по оси Y (не может быть null)
+     * @throws NullPointerException если параметр y равен null
+     */
+    public Coordinates(){}
     public Coordinates(int x, Double y) {
         setX(x);
         setY(y);
     }
 
+    /**
+     * Устанавливает координату X.
+     *
+     * @param x значение координаты X
+     */
     public void setX(int x) {
         this.x = x;
     }
 
+    /**
+     * Возвращает координату X.
+     *
+     * @return координата X
+     */
     @XmlElement
     public int getX() {
         return x;
     }
 
+    /**
+     * Устанавливает координату Y.
+     *
+     * @param y значение координаты Y (не может быть null)
+     * @throws NullPointerException если параметр y равен null
+     */
     public void setY(Double y) {
         this.y = Objects.requireNonNull(y, "Координата y не может быть null.");
     }
 
+    /**
+     * Возвращает координату Y.
+     *
+     * @return координата Y
+     */
     @XmlElement
     public Double getY() {
         return y;
     }
 
+    /**
+     * Возвращает строковое представление объекта Coordinates.
+     *
+     * @return строковое представление координат
+     */
     @Override
     public String toString() {
         return "Coordinates{" +
@@ -44,6 +89,12 @@ public class Coordinates {
                 '}';
     }
 
+    /**
+     * Сравнивает данный объект Coordinates с другим объектом.
+     *
+     * @param o объект для сравнения
+     * @return true если объекты равны, false в противном случае
+     */
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -52,11 +103,13 @@ public class Coordinates {
         return x == that.x && Objects.equals(y, that.y);
     }
 
+    /**
+     * Возвращает хэш-код объекта.
+     *
+     * @return хэш-код координат
+     */
     @Override
     public int hashCode() {
         return Objects.hash(x, y);
     }
 }
-
-
-

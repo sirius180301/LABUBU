@@ -80,6 +80,12 @@ public class Main {
 
 
         System.out.println("Программа управления коллекцией Route запущена. Введите 'help' для просмотра доступных команд.");
+        System.out.println("Введите команду add для добавления маршрута");
+        //System.out.println("|");
+        System.out.print("> ");
+
+
+
         while (in.hasNextLine()) {
             String line = in.nextLine();
             String[] s = line.split(" ");

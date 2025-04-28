@@ -11,10 +11,25 @@ import java.io.PrintStream;
 import java.util.NoSuchElementException;
 import java.util.Scanner;
 
+/**
+ * Класс для чтения данных о маршруте из входного потока.
+ * Обеспечивает интерактивное создание объектов Route через консольный ввод.
+ */
 @XmlRootElement
 public class RouteReader {
 
-    public static Route readRoute(InputStream in, PrintStream out, RouteCollection routeCollection) throws NoSuchElementException {
+    /**
+     * Читает данные маршрута из входного потока и создает объект Route.
+     *
+     * @param in              входной поток для чтения данных
+     * @param out             выходной поток для вывода подсказок
+     * @param routeCollection коллекция маршрутов для генерации ID
+     * @return новый объект Route
+     * @throws NoSuchElementException если введены некорректные данные
+     */
+
+    public static Route readRoute(InputStream in, PrintStream out, RouteCollection routeCollection)
+            throws NoSuchElementException {
         Scanner scanner = new Scanner(in);
 
         out.print("Введите имя маршрута: ");
@@ -25,17 +40,26 @@ public class RouteReader {
         }
 
         Coordinates coordinates = readCoordinates(in, out);
-        Location from = readLocation(in, out, "from"); // Указываем, для какой локации читаем
-        Location to = readLocation(in, out, "to"); // Указываем, для какой локации читаем
+        Location from = readLocation(in, out, "from");
+        Location to = readLocation(in, out, "to");
 
-        // Вычисляем расстояние
         Float distance = calculateDistance(from, to);
 
-        long id = routeCollection.getGeneraterID().generateId();
+        long id = routeCollection.getGeneratorID().generateId();
         return new Route(id, name, coordinates, from, to, distance);
     }
 
-    private static Coordinates readCoordinates(InputStream in, PrintStream out) throws NoSuchElementException {
+    /**
+     * Читает координаты из входного потока
+     *
+     * @param in  входной поток
+     * @param out выходной поток для подсказок
+     * @return объект Coordinates
+     * @throws NoSuchElementException если введены некорректные данные
+     */
+
+    private static Coordinates readCoordinates(InputStream in, PrintStream out)
+            throws NoSuchElementException {
         Scanner scanner = new Scanner(in);
 
         out.print("Введите координату X: ");
@@ -67,7 +91,18 @@ public class RouteReader {
         return new Coordinates(x, y);
     }
 
-    private static Location readLocation(InputStream in, PrintStream out, String locationName) throws NoSuchElementException {
+    /**
+     * Читает данные локации из входного потока.
+     *
+     * @param in           входной поток
+     * @param out          выходной поток для подсказок
+     * @param locationName название локации(from/to)
+     * @return объект Location
+     * @throws NoSuchElementException если введены некорректные данные
+     */
+
+    private static Location readLocation(InputStream in, PrintStream out, String locationName)
+            throws NoSuchElementException {
         Scanner scanner = new Scanner(in);
 
         long x = readLongCoordinate(in, out, "X", locationName);
@@ -84,18 +119,45 @@ public class RouteReader {
         return new Location(x, y, z);
     }
 
-    private static long readLongCoordinate(InputStream in, PrintStream out, String coordinateName, String locationName) throws NoSuchElementException {
+    /**
+     * Читает координату типа long из входного потока.
+     *
+     * @param in             входной поток
+     * @param out            выходной поток для подсказок
+     * @param coordinateName название координаты(X/Y/Z)
+     * @param locationName   название локации(from/to)
+     * @return значение координаты
+     * @throws NoSuchElementException если введены некорректные данные
+     */
+
+    private static long readLongCoordinate(InputStream in, PrintStream out,
+                                           String coordinateName, String locationName)
+            throws NoSuchElementException {
         Scanner scanner = new Scanner(in);
         out.print("Введите координату " + coordinateName + " для Location " + locationName + ": ");
         out.flush();
         try {
             return Long.parseLong(scanner.nextLine().trim());
         } catch (NumberFormatException e) {
-            throw new NoSuchElementException("Неверный формат координаты " + coordinateName + " для Location " + locationName + ".");
+            throw new NoSuchElementException("Неверный формат координаты " + coordinateName +
+                    " для Location " + locationName + ".");
         }
     }
 
-    private static Double readDoubleCoordinate(InputStream in, PrintStream out, String coordinateName, String locationName) throws NoSuchElementException {
+    /**
+     * Читает координату типа Double из входного потока
+     *
+     * @param in             входной поток
+     * @param out            выходной поток для подсказок
+     * @param coordinateName название координаты(X/Y/Z)
+     * @param locationName   название локации(from/to)
+     * @return значение координаты
+     * @throws NoSuchElementException если введены некорректные данные
+     */
+
+    private static Double readDoubleCoordinate(InputStream in, PrintStream out,
+                                               String coordinateName, String locationName)
+    throws NoSuchElementException {
         Scanner scanner = new Scanner(in);
         out.print("Введите координату " + coordinateName + " для Location " + locationName + ": ");
         out.flush();
@@ -107,10 +169,17 @@ public class RouteReader {
                 return Double.parseDouble(yStr);
             }
         } catch (NumberFormatException e) {
-            throw new NoSuchElementException("Неверный формат координаты " + coordinateName + " для Location " + locationName + ".");
+            throw new NoSuchElementException("Неверный формат координаты " + coordinateName +
+                    " для Location " + locationName + ".");
         }
     }
 
+    /**
+     * Вычисляет расстояние между двумя локациями.
+     * @param from начальная локация
+     * @param to   конечная локация
+     * @return расстояние между локациями
+     */
     private static Float calculateDistance(Location from, Location to) {
         double dx = to.getX() - from.getX();
         double dy = to.getY() - from.getY();
