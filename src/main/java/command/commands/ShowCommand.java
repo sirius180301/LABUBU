@@ -18,7 +18,10 @@ public class ShowCommand extends Command {
 
     @Override
     public void execute(Enviroment env, PrintStream stdin, InputStream stdout, String[] commandsArgs) {
-        routeCollection.getRoute().forEach(stdin::println);
+        if (routeCollection.getRoute().isEmpty()) {
+            System.out.println("Коллекция не содержит данных.");}
+            else{
+        routeCollection.getRoute().forEach(stdin::println);}
     }
 
     @Override
