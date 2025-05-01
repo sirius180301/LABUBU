@@ -2,7 +2,9 @@ package command.managers;
 
 import model.Route;
 
+import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlRootElement;
+import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
 import java.time.LocalDateTime;
 import java.util.*;
 
@@ -22,10 +24,13 @@ public class RouteCollection {
         this.routes = new LinkedHashSet<>();
     }
 
+    @XmlElement
+    @XmlJavaTypeAdapter(LocalDateTimeAdapter.class)
     public LocalDateTime getCreationDate() {
         return creationDate;
     }
 
+    @XmlElement
     public LinkedHashSet<Route> getRoute() {
         return (routes);
     }

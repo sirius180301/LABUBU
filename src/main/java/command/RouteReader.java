@@ -10,6 +10,7 @@ import command.managers.RouteCollection;
 import javax.xml.bind.annotation.XmlRootElement;
 import java.io.InputStream;
 import java.io.PrintStream;
+import java.util.NoSuchElementException;
 import java.util.Scanner;
 
 @XmlRootElement
@@ -18,44 +19,25 @@ public class RouteReader {
     private static final String ANSI_RED = "\u001B[31m";
     private static final String ANSI_RESET = "\u001B[0m";
 
-    public static Route readRoute(InputStream in, PrintStream out, RouteCollection routeCollection) {
+    public static Route readRoute(InputStream in, PrintStream out, RouteCollection routeCollection)
+            throws NoSuchElementException {
         Scanner scanner = new Scanner(in);
-        String name = null;
-        Coordinates coordinates = null;
-        Location from = null;
-        Location to = null;
-        //Distance a = null;
 
-        while (name == null) {
-            out.print("Введите имя маршрута: ");
-            out.flush();
-            String input = scanner.nextLine().trim();
-            if (input.isEmpty()) {
-                out.println(ANSI_RED + "Имя маршрута не может быть пустым. Пожалуйста, введите имя еще раз." + ANSI_RESET);
-            } else {
-                name = input;
-            }
+        out.print("Введите имя маршрута: ");
+        out.flush();
+        String name = scanner.nextLine().trim();
+        if (name.isEmpty()) {
+            throw new NoSuchElementException("Имя маршрута не может быть пустым.");
         }
 
-        while (coordinates == null) {
-            coordinates = readCoordinates(in, out);
-        }
+        Coordinates coordinates = readCoordinates(in, out);
+        Location from = readLocation(in, out, "from");
+        Location to = readLocation(in, out, "to");
 
-        while (from == null) {
-            from = readLocation(in, out, "from");
-        }
-
-        while (to == null) {
-            to = readLocation(in, out, "to");
-        }
-       // while (a == null) {
-         //   to = readLocation(in, out, "distance");
-        //}
-
-       // Float distance = readDistance();
+        Float distance = calculateDistance(from, to);
         long id = routeCollection.nextId;
 
-        return new Route(id, name, coordinates, from, to);
+        return new Route(id, name, coordinates, from, to, distance);
     }
 
     private static Coordinates readCoordinates(InputStream in, PrintStream out) {
@@ -105,6 +87,13 @@ public class RouteReader {
 
         return new Location(x, y, z);
     }
+    private static Float calculateDistance(Location from, Location to) {
+        double dx = to.getX() - from.getX();
+        double dy = to.getY() - from.getY();
+        double dz = to.getZ() - from.getZ();
+        return (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
+    }
+
     /*private static long readDistance(InputStream in, PrintStream out, String locationName ) {
         Scanner scanner = new Scanner(in);
         long distance = 0;

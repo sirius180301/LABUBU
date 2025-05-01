@@ -136,6 +136,7 @@ public class Route implements Comparable<Route> {
      * Возвращает дату создания маршрута
      * @return дата создания
      */
+    @XmlElement
     @XmlJavaTypeAdapter(LocalDateTimeAdapter.class)
     public LocalDateTime getCreationDate() {
         return creationDate;

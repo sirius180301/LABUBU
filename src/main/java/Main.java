@@ -27,7 +27,7 @@ public class Main {
     private static final String ANSI_RED = "\u001B[31m";
     private static final String ANSI_RESET = "\u001B[0m";
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws IOException, CommandException {
         Scanner in = new Scanner(System.in);
         HashMap<String, Command> map = new HashMap<>();
         RouteCollection routeCollection = new RouteCollection();
@@ -53,7 +53,11 @@ public class Main {
         Enviroment enviroment = new Enviroment(map);
 
         String filePath = "Nastya.xml";
-        File file = null;
+        Files.deleteIfExists(Paths.get("Nastya.xml"));
+        File file = new File("Nastya.xml");
+        System.out.println("Существует ли файл? " + file.exists());
+        System.out.println("Доступен ли для записи? " + file.canWrite());
+
         if (filePath == null) {
             System.out.println(ANSI_RED + "Переменная окружения 'Nastya.xml' не установлена." + ANSI_RESET);
         } else {
@@ -73,6 +77,8 @@ public class Main {
                 try {
                     file.createNewFile();
                     System.out.println("Создан новый файл: " + filePath);
+                    System.out.println("Доступен ли для записи? " + file.canWrite());
+                    System.out.println("Существует ли файл? " + file.exists());
                 } catch (IOException e) {
                     System.err.println(ANSI_RED + "Не удалось создать файл: " + e.getMessage() + ANSI_RESET);
                 }
@@ -162,6 +168,8 @@ public class Main {
             outputStream = new BufferedOutputStream(Files.newOutputStream(Paths.get(filePath)));
             marshaller.marshal(routeCollection, new OutputStreamWriter(outputStream, "UTF-8"));
             System.out.println("Данные успешно сохранены в файл: " + filePath);
+
+
 
         } catch (JAXBException e) {
             System.err.println(ANSI_RED + "Ошибка при сериализации в XML: " + e.getMessage() + ANSI_RESET);
