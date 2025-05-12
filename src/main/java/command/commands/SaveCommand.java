@@ -1,53 +1,83 @@
 package command.commands;
 
 import command.base.Command;
+import command.base.Enviroment;
 import command.exeptions.CommandException;
 import command.managers.RouteCollection;
 
+import javax.xml.bind.JAXBContext;
+import javax.xml.bind.JAXBException;
+import javax.xml.bind.Marshaller;
+import java.io.*;
 import java.util.HashMap;
 
-/**
- * Команда для сохранения коллекции в файл.
- */
 public class SaveCommand extends Command {
-    private final RouteCollection routecollection;
+    private final String filePath;
+    private final File file;
+    private final RouteCollection routeCollection;
+    private final JAXBContext context;
+    private final Marshaller marshaller;
 
-    /**
-     * Создает объект Save с заданным CollectionManager.
-     *
-     * @param routecollection Менеджер коллекции.
-     */
-    public SaveCommand(RouteCollection routecollection) {
+    public SaveCommand(RouteCollection routeCollection) throws CommandException {
         super("save");
-        this.routecollection = routecollection;
-    }
+        this.routeCollection = routeCollection;
 
-    public static void register(HashMap<String, Command> map, RouteCollection routeCollection) {
-    }
+        filePath = System.getenv("ROUTE_DATA_FILE");
+        if (filePath == null) {
+            throw new CommandException("Переменная окружения ROUTE_DATA_FILE не задана. Сохранение в файл невозможно.");
+        }
+        file = new File(filePath);
 
-    /**
-     * Выполняет команду сохранения коллекции.
-     *
-     * @param args Аргументы команды (не используются).
-     * @throws CommandException Если происходит ошибка при сохранении коллекции.
-     */
-    @Override
-    public void execute(String[] args) throws CommandException {
         try {
-            routecollection.getRoute();
-            System.out.println(" ");
-        } catch (Exception e) {
-            throw new CommandException("Ошибка при сохранении коллекции: " + e.getMessage(), e);
+            context = JAXBContext.newInstance(RouteCollection.class);
+            marshaller = context.createMarshaller();
+            marshaller.setProperty(Marshaller.JAXB_FORMATTED_OUTPUT, Boolean.TRUE);
+        } catch (JAXBException e) {
+            throw new CommandException("Ошибка при сериализации/десериализации");
         }
     }
 
-    /**
-     * Возвращает строку справки для команды save.
-     *
-     * @return Строка справки.
-     */
+    @Override
+    public void execute(Enviroment env, PrintStream out, InputStream in, String[] args) throws CommandException {
+        prepareSaveFile();
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(file))) {
+            writer.write(convertToXML(routeCollection));
+        } catch (IOException e) {
+            System.out.println("Ошибка при сохранении");
+        }
+    }
+
     @Override
     public String getHelp() {
-        return "save - сохранить коллекцию в файл";
+        return "сохранить коллекцию в файл";
+    }
+
+    public static void register(HashMap<String, Command> commandMap, RouteCollection routeCollection) throws CommandException {
+        SaveCommand saveCommand = new SaveCommand(routeCollection);
+        commandMap.put(saveCommand.getName(), saveCommand);
+    }
+
+    private void prepareSaveFile() throws CommandException {
+        try {
+            if (!file.exists()) {
+                if (file.createNewFile()) {
+                    System.out.println("Создан новый файл сохранения");
+                }
+            }
+        } catch (IOException e) {
+            throw new CommandException("Ошибка при создании файла");
+        }
+    }
+
+    public String convertToXML(RouteCollection collection) throws CommandException {
+        try(StringWriter stringWriter = new StringWriter()) {
+            marshaller.marshal(collection, stringWriter);
+            return stringWriter.toString();
+        } catch (JAXBException | IOException e) {
+            throw new CommandException("Ошибка при сериализации.");
+        }
     }
 }
+
+
+

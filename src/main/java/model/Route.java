@@ -69,13 +69,15 @@ public class Route implements Comparable<Route> {
         this.distance = distance;
     }
 
+
+
+    public Route(long id, String name, Coordinates coordinates, Location from, Location to) {
+    }
+
     /**
      * Внутренний класс для построения маршрута (не используется в текущей реализации)
      */
-    protected static class RoutebBlder {
-        private static Location from;
-        private static Location to;
-    }
+
 
     /**
      * Возвращает идентификатор маршрута
@@ -134,6 +136,7 @@ public class Route implements Comparable<Route> {
      * Возвращает дату создания маршрута
      * @return дата создания
      */
+    @XmlElement
     @XmlJavaTypeAdapter(LocalDateTimeAdapter.class)
     public LocalDateTime getCreationDate() {
         return creationDate;

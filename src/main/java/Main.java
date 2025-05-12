@@ -1,4 +1,5 @@
 
+
 import command.base.Command;
 import command.base.Enviroment;
 import command.commands.*;
@@ -19,15 +20,18 @@ import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Scanner;
 
+
+
 public class Main {
 
     private static final String ANSI_RED = "\u001B[31m";
     private static final String ANSI_RESET = "\u001B[0m";
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws IOException, CommandException {
         Scanner in = new Scanner(System.in);
         HashMap<String, Command> map = new HashMap<>();
         RouteCollection routeCollection = new RouteCollection();
+
 
         HelpCommand.register(map);
         InfoCommand.register(map, routeCollection);
@@ -49,7 +53,11 @@ public class Main {
         Enviroment enviroment = new Enviroment(map);
 
         String filePath = "Nastya.xml";
-        File file = null;
+        Files.deleteIfExists(Paths.get("Nastya.xml"));
+        File file = new File("Nastya.xml");
+        System.out.println("Существует ли файл? " + file.exists());
+        System.out.println("Доступен ли для записи? " + file.canWrite());
+
         if (filePath == null) {
             System.out.println(ANSI_RED + "Переменная окружения 'Nastya.xml' не установлена." + ANSI_RESET);
         } else {
@@ -69,6 +77,8 @@ public class Main {
                 try {
                     file.createNewFile();
                     System.out.println("Создан новый файл: " + filePath);
+                    System.out.println("Доступен ли для записи? " + file.canWrite());
+                    System.out.println("Существует ли файл? " + file.exists());
                 } catch (IOException e) {
                     System.err.println(ANSI_RED + "Не удалось создать файл: " + e.getMessage() + ANSI_RESET);
                 }
@@ -77,6 +87,7 @@ public class Main {
 
 
         System.out.println("Программа управления коллекцией Route запущена. Введите 'help' для просмотра доступных команд.");
+        System.out.println("*подсказка: команда add добавляет элемент в коллекцию. Советую начать с этого)");
         while (true) {
             System.out.print("> "); // Добавляем знак > перед вводом команды
             System.out.flush(); // Обеспечиваем немедленный вывод
@@ -144,32 +155,36 @@ public class Main {
             return;
         }
 
-        System.out.println("Попытка сохранения в файл: " + filePath);
-        System.out.println("Количество элементов: " + routeCollection.getRoute().size());
+        JAXBContext jaxbContext = null;
+        Marshaller marshaller = null;
+        BufferedOutputStream outputStream = null;
 
         try {
-            JAXBContext jaxbContext = JAXBContext.newInstance(
-                    RouteCollection.class, Route.class, Coordinates.class, Location.class
-            );
-            Marshaller marshaller = jaxbContext.createMarshaller();
+            jaxbContext = JAXBContext.newInstance(RouteCollection.class, Route.class, Coordinates.class, Location.class);
+            marshaller = jaxbContext.createMarshaller();
             marshaller.setProperty(Marshaller.JAXB_FORMATTED_OUTPUT, true);
             marshaller.setProperty(Marshaller.JAXB_ENCODING, "UTF-8");
 
-            // Создаём файл, если его нет
-            File file = new File(filePath);
-            if (!file.exists()) {
-                file.createNewFile();
-            }
+            outputStream = new BufferedOutputStream(Files.newOutputStream(Paths.get(filePath)));
+            marshaller.marshal(routeCollection, new OutputStreamWriter(outputStream, "UTF-8"));
+            System.out.println("Данные успешно сохранены в файл: " + filePath);
 
-            // Сохраняем данные
-            try (OutputStream outputStream = Files.newOutputStream(Path.of(filePath));
-                 OutputStreamWriter writer = new OutputStreamWriter(outputStream, "UTF-8")) {
-                marshaller.marshal(routeCollection, writer);
-                System.out.println("Данные успешно сохранены в файл: " + filePath);
+
+
+        } catch (JAXBException e) {
+            System.err.println(ANSI_RED + "Ошибка при сериализации в XML: " + e.getMessage() + ANSI_RESET);
+        } catch (IOException e) {
+            System.err.println(ANSI_RED + "Ошибка при записи в файл: " + e.getMessage() + ANSI_RESET);
+        } finally {
+            // Ensure outputStream is closed even if exceptions occur
+            if (outputStream != null) {
+                try {
+                    outputStream.close();
+                } catch (IOException e) {
+                    System.err.println(ANSI_RED + "Error closing output stream: " + e.getMessage() + ANSI_RESET);
+                }
             }
-        } catch (JAXBException | IOException e) {
-            System.err.println("Ошибка при сохранении: " + e.getMessage());
-            e.printStackTrace();
         }
+
     }
 }
