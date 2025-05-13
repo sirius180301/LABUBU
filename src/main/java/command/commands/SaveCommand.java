@@ -22,6 +22,7 @@ public class SaveCommand extends Command {
         super("save");
         this.routeCollection = routeCollection;
 
+
         filePath = System.getenv("ROUTE_DATA_FILE");
         if (filePath == null) {
             throw new CommandException("Переменная окружения ROUTE_DATA_FILE не задана. Сохранение в файл невозможно.");
@@ -35,11 +36,13 @@ public class SaveCommand extends Command {
         } catch (JAXBException e) {
             throw new CommandException("Ошибка при сериализации/десериализации");
         }
+        System.out.println("Данные успешно сохранены в файл "+  filePath);
     }
 
     @Override
     public void execute(Enviroment env, PrintStream out, InputStream in, String[] args) throws CommandException {
         prepareSaveFile();
+        System.out.println("Данные успешно сохранены в файл "+  filePath);
         try (BufferedWriter writer = new BufferedWriter(new FileWriter(file))) {
             writer.write(convertToXML(routeCollection));
         } catch (IOException e) {

@@ -41,7 +41,7 @@ public class Main {
         RemoveByIdCommand.register(map, routeCollection);
         ClearCommand.register(map, routeCollection);
         SaveCommand.register(map, routeCollection);  // Зарегистрирована команда save
-        ExecuteScriptCommand.register(map, routeCollection);
+        //ExecuteScriptCommand.register(map, routeCollection);
         ExitCommand.register(map);
         AddIfMaxCommand.register(map, routeCollection);
         AddIfMinCommand.register(map, routeCollection);
@@ -155,7 +155,7 @@ public class Main {
             return;
         }
 
-        JAXBContext jaxbContext = null;
+        /*JAXBContext jaxbContext = null;
         Marshaller marshaller = null;
         BufferedOutputStream outputStream = null;
 
@@ -183,8 +183,8 @@ public class Main {
                 } catch (IOException e) {
                     System.err.println(ANSI_RED + "Error closing output stream: " + e.getMessage() + ANSI_RESET);
                 }
-            }
+            }*/
         }
 
     }
-}
+

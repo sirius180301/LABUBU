@@ -24,6 +24,8 @@ public class RouteCollection {
         this.routes = new LinkedHashSet<>();
     }
 
+
+
     @XmlElement
     @XmlJavaTypeAdapter(LocalDateTimeAdapter.class)
     public LocalDateTime getCreationDate() {
@@ -32,7 +34,7 @@ public class RouteCollection {
 
     @XmlElement
     public LinkedHashSet<Route> getRoute() {
-        return (routes);
+        return routes;
     }
 
     public void setRoutes(LinkedHashSet<Route> routes) {

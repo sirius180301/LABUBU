@@ -42,6 +42,7 @@ public class Route implements Comparable<Route> {
 
     /** Расстояние маршрута (может быть null) */
     private Float distance;
+    private String username;
 
     /**
      * Приватный конструктор без параметров (требуется для JAXB)
@@ -67,11 +68,15 @@ public class Route implements Comparable<Route> {
         this.from = Objects.requireNonNull(from, "Местоположение отправления не может быть null.");
         this.to = Objects.requireNonNull(to, "Местоположение прибытия не может быть null.");
         this.distance = distance;
+        this.username = username;
     }
 
 
 
     public Route(long id, String name, Coordinates coordinates, Location from, Location to) {
+    }
+
+    public Route(long id, String name, Coordinates coordinates, Location from, Location to, Float distance, String username) {
     }
 
     /**

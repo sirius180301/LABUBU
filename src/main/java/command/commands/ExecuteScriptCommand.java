@@ -1,4 +1,4 @@
-package command.commands;
+/*package command.commands;
 
 import command.base.Command;
 import command.base.Enviroment;
@@ -56,3 +56,4 @@ public class ExecuteScriptCommand extends Command {
         commandMap.put(executeScriptCommand.getName(), executeScriptCommand);
     }
 }
+*/

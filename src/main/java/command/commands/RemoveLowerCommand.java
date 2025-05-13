@@ -14,16 +14,19 @@ import java.util.NoSuchElementException;
 
 public class RemoveLowerCommand extends Command {
     private final RouteCollection routeCollection;
+    private String username;
+
 
     protected RemoveLowerCommand(RouteCollection routeCollection) {
         super("remove_lower");
         this.routeCollection = routeCollection;
+        this.username = username;
     }
 
     @Override
     public void execute(Enviroment env, PrintStream out, InputStream in, String[] args) throws CommandException {
         try {
-            Route newRoute = RouteReader.readRoute(in, out, routeCollection); // Используем RouteReader
+            Route newRoute = RouteReader.readRoute(in, out, routeCollection,username); // Используем RouteReader
             routeCollection.getRoute().removeIf(route -> route.compareTo(newRoute) < 0); // Исправлено на newRoute
             out.println("Элементы, меньшие заданного, успешно удалены.");
         } catch (NoSuchElementException e) {

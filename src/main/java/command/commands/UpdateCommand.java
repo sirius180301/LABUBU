@@ -14,6 +14,7 @@ import java.util.NoSuchElementException;
 
 public class UpdateCommand extends Command {
     private final RouteCollection routeCollection;
+    private String username;
 
     public UpdateCommand(RouteCollection routeCollection) {
         super("update");
@@ -38,7 +39,7 @@ public class UpdateCommand extends Command {
                 throw new CommandException("Маршрут с указанным id не найден.");
             }
 
-            Route updatedRoute = RouteReader.readRoute(in, out, routeCollection);
+            Route updatedRoute = RouteReader.readRoute(in, out, routeCollection, username);
             updatedRoute.setId(id);
 
             routeCollection.getRoute().remove(existingRoute);
