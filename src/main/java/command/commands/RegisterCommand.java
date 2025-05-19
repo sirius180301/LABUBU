@@ -4,6 +4,7 @@ import command.base.Command;
 import command.base.Enviroment;
 import command.base.database.UserAuthenticator;
 import command.exeptions.CommandException;
+import command.managers.RouteCollection;
 
 
 import java.io.InputStream;
@@ -17,6 +18,9 @@ public class RegisterCommand extends Command {
         super("register");
     }
 
+    public static void register(HashMap<String, Command> map, RouteCollection routeCollection) {
+    }
+
     @Override
     public void execute(Enviroment env, PrintStream out, InputStream in, String[] args) throws CommandException {
         if (args.length != 2) {
@@ -27,7 +31,7 @@ public class RegisterCommand extends Command {
 
     @Override
     public String getHelp() {
-        return null;
+        return "Пройдите регистрацию в ситстеме";
     }
 }
 

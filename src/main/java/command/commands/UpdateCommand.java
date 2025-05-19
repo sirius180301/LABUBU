@@ -39,7 +39,7 @@ public class UpdateCommand extends Command {
                 throw new CommandException("Маршрут с указанным id не найден.");
             }
 
-            Route updatedRoute = RouteReader.readRoute(in, out, routeCollection, username);
+            Route updatedRoute = RouteReader.readRoute(in, out, routeCollection);
             updatedRoute.setId(id);
 
             routeCollection.getRoute().remove(existingRoute);

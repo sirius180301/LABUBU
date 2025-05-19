@@ -24,7 +24,7 @@ public class AddCommand extends Command {
     @Override
     public void execute(Enviroment env, PrintStream out, InputStream in, String[] args) throws CommandException {
         try {
-            Route newRoute = RouteReader.readRoute(in, out, routeCollection, username);
+            Route newRoute = RouteReader.readRoute(in, out, routeCollection);
             routeCollection.add(newRoute);
             out.println("Элемент успешно добавлен в коллекцию.");
         } catch (NoSuchElementException e) {

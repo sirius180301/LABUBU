@@ -19,7 +19,7 @@ import java.util.NoSuchElementException;
  */
 public class AddIfMaxCommand extends Command {
     private final RouteCollection routeCollection;
-    private String username;
+    //private String username;
 
     /**
      * Конструктор для создания команды AddIfMaxCommand.
@@ -43,7 +43,7 @@ public class AddIfMaxCommand extends Command {
     @Override
     public void execute(Enviroment env, PrintStream out, InputStream in, String[] args) throws CommandException {
         try {
-            Route newRoute = RouteReader.readRoute(in, out, routeCollection, username );
+            Route newRoute = RouteReader.readRoute(in, out, routeCollection );
             if (routeCollection.getRoute().isEmpty() || newRoute.compareTo(Collections.max(routeCollection.getRoute())) > 0) {
                 routeCollection.add(newRoute);
                 out.println("Элемент успешно добавлен в коллекцию (как максимальный).");
