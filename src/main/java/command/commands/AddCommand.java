@@ -14,6 +14,7 @@ import java.util.NoSuchElementException;
 
 public class AddCommand extends Command {
     private final RouteCollection routeCollection;
+    private String username;
 
     public AddCommand(RouteCollection routeCollection) {
         super("add");

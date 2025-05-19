@@ -14,6 +14,7 @@ import java.util.NoSuchElementException;
 
 public class UpdateCommand extends Command {
     private final RouteCollection routeCollection;
+    private String username;
 
     public UpdateCommand(RouteCollection routeCollection) {
         super("update");

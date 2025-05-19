@@ -1,5 +1,3 @@
-
-
 import command.base.Command;
 import command.base.Enviroment;
 import command.commands.*;
@@ -41,7 +39,7 @@ public class Main {
         RemoveByIdCommand.register(map, routeCollection);
         ClearCommand.register(map, routeCollection);
         SaveCommand.register(map, routeCollection);  // Зарегистрирована команда save
-        ExecuteScriptCommand.register(map, routeCollection);
+        //ExecuteScriptCommand.register(map, routeCollection);
         ExitCommand.register(map);
         AddIfMaxCommand.register(map, routeCollection);
         AddIfMinCommand.register(map, routeCollection);
@@ -52,9 +50,9 @@ public class Main {
 
         Enviroment enviroment = new Enviroment(map);
 
-        String filePath = "Nastya.xml";
+        String filePath = System.getenv("ROUTE_DATA_FILE");
         Files.deleteIfExists(Paths.get("Nastya.xml"));
-        File file = new File("Nastya.xml");
+         File file = new File("Nastya.xml");
         System.out.println("Существует ли файл? " + file.exists());
         System.out.println("Доступен ли для записи? " + file.canWrite());
 
@@ -84,7 +82,6 @@ public class Main {
                 }
             }
         }
-
 
         System.out.println("Программа управления коллекцией Route запущена. Введите 'help' для просмотра доступных команд.");
         System.out.println("*подсказка: команда add добавляет элемент в коллекцию. Советую начать с этого)");
@@ -124,7 +121,7 @@ public class Main {
                     System.err.println(ANSI_RED + "Непредвиденная ошибка при выполнении команды: " + e.getMessage() + ANSI_RESET);
                 }
             } else {
-                System.err.println(ANSI_RED + "Неизвестная команда: " + s[0] + ANSI_RESET);
+                System.out.println(ANSI_RED + "Неизвестная команда: " + s[0] + ANSI_RESET);
                 System.out.println("Введите 'help' для просмотра доступных команд.");
             }
         }
@@ -155,9 +152,10 @@ public class Main {
             return;
         }
 
-        JAXBContext jaxbContext = null;
+        /*JAXBContext jaxbContext = null;
         Marshaller marshaller = null;
         BufferedOutputStream outputStream = null;
+
 
         try {
             jaxbContext = JAXBContext.newInstance(RouteCollection.class, Route.class, Coordinates.class, Location.class);
@@ -183,8 +181,10 @@ public class Main {
                 } catch (IOException e) {
                     System.err.println(ANSI_RED + "Error closing output stream: " + e.getMessage() + ANSI_RESET);
                 }
-            }
-        }
-
+            }*/
     }
+
 }
+
+
+

@@ -15,6 +15,7 @@ import java.util.NoSuchElementException;
 
 public class AddIfMinCommand extends Command {
     private final RouteCollection routeCollection;
+    private String username;
 
     public AddIfMinCommand(RouteCollection routeCollection) {
         super("add_if_min");
@@ -24,7 +25,7 @@ public class AddIfMinCommand extends Command {
     @Override
     public void execute(Enviroment env, PrintStream out, InputStream in, String[] args) throws CommandException {
         try {
-            Route newRoute = RouteReader.readRoute(in, out, routeCollection);
+            Route newRoute = RouteReader.readRoute(in, out, routeCollection );
             if (routeCollection.getRoute().isEmpty() || newRoute.compareTo(Collections.min(routeCollection.getRoute())) < 0) {
                 routeCollection.add(newRoute);
                 out.println("Элемент успешно добавлен в коллекцию (как минимальный).");

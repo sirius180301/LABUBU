@@ -40,6 +40,7 @@ public class SaveCommand extends Command {
     @Override
     public void execute(Enviroment env, PrintStream out, InputStream in, String[] args) throws CommandException {
         prepareSaveFile();
+        System.out.println("Данные успешно сохранены в файл "+  filePath);
         try (BufferedWriter writer = new BufferedWriter(new FileWriter(file))) {
             writer.write(convertToXML(routeCollection));
         } catch (IOException e) {
@@ -78,6 +79,3 @@ public class SaveCommand extends Command {
         }
     }
 }
-
-
-

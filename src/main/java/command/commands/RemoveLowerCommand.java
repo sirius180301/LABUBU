@@ -14,10 +14,13 @@ import java.util.NoSuchElementException;
 
 public class RemoveLowerCommand extends Command {
     private final RouteCollection routeCollection;
+    //private String username;
+
 
     protected RemoveLowerCommand(RouteCollection routeCollection) {
         super("remove_lower");
         this.routeCollection = routeCollection;
+        //this.username = username;
     }
 
     @Override
