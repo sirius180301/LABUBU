@@ -39,7 +39,7 @@ public class Main {
         RemoveByIdCommand.register(map, routeCollection);
         ClearCommand.register(map, routeCollection);
         SaveCommand.register(map, routeCollection);  // Зарегистрирована команда save
-        //ExecuteScriptCommand.register(map, routeCollection);
+        ExecuteScriptCommand.register(map);
         ExitCommand.register(map);
         AddIfMaxCommand.register(map, routeCollection);
         AddIfMinCommand.register(map, routeCollection);
@@ -51,7 +51,7 @@ public class Main {
         Enviroment enviroment = new Enviroment(map);
 
         String filePath = System.getenv("ROUTE_DATA_FILE");
-        Files.deleteIfExists(Paths.get("Nastya.xml"));
+        //Files.deleteIfExists(Paths.get("Nastya.xml"));
          File file = new File("Nastya.xml");
         System.out.println("Существует ли файл? " + file.exists());
         System.out.println("Доступен ли для записи? " + file.canWrite());

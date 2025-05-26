@@ -1,48 +1,80 @@
-/*package command.commands;
+package command.commands;
 
 import command.base.Command;
 import command.base.Enviroment;
 import command.exeptions.CommandException;
-import command.managers.RouteCollection;
 
 import java.io.*;
 import java.util.HashMap;
-import java.util.Scanner;
+import java.util.HashSet;
+import java.util.Set;
 
 public class ExecuteScriptCommand extends Command {
-    private final RouteCollection routeCollection;
 
-    public ExecuteScriptCommand(RouteCollection routeCollection) {
+    private final HashMap<String, Command> commandMap;
+    private final Set<String> executingScripts;  // Для предотвращения рекурсии
+
+    public ExecuteScriptCommand(HashMap<String, Command> commandMap) {
         super("execute_script");
-        this.routeCollection = routeCollection;
+        this.commandMap = commandMap;
+        this.executingScripts = new HashSet<>();
     }
 
     @Override
-    public void execute(Enviroment env, PrintStream out, InputStream stdin, String[] args) throws CommandException {
+    public void execute(Enviroment env, PrintStream out, InputStream in, String[] args) throws CommandException {
         if (args.length != 1) {
-            throw new CommandException("Неверное количество аргументов для команды execute_script. Требуется имя файла.");
+            throw new CommandException("Команда execute_script требует один аргумент - путь к файлу скрипта.");
         }
-        String fileName = args[0];
-        try (Scanner fileScanner = new Scanner(new File(fileName))) {
-            while (fileScanner.hasNextLine()) {
-                String line = fileScanner.nextLine();
-                String[] s = line.split(" ");
-                String[] commandsArgs = new String[s.length - 1];
-                System.arraycopy(s, 1, commandsArgs, 0, commandsArgs.length);
-                if (env.getStringCommandHashMap().containsKey(s[0])) {
-                    Command command = env.getStringCommandHashMap().get(s[0]);
-                    try {
-                        command.execute(env, out, new ByteArrayInputStream(new byte[0]), commandsArgs); // Пустой InputStream для скрипта
-                    } catch (CommandException e) {
-                        System.err.println("Ошибка при выполнении команды из скрипта: " + e.getMessage());
-                    }
-                } else {
-                    System.err.println("Неизвестная команда в скрипте: " + s[0]);
+
+        String scriptFilePath = args[0];
+        File scriptFile = new File(scriptFilePath);
+
+        if (!scriptFile.exists() || !scriptFile.isFile()) {
+            throw new CommandException("Файл скрипта не найден: " + scriptFilePath);
+        }
+
+        String absolutePath = scriptFile.getAbsolutePath();
+
+        if (executingScripts.contains(absolutePath)) {
+            throw new CommandException("Обнаружена рекурсия вызова скрипта: " + scriptFilePath);
+        }
+
+        executingScripts.add(absolutePath);
+
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(scriptFile), "UTF-8"))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                line = line.trim();
+                if (line.isEmpty() || line.startsWith("#")) {
+                    continue; // Пропускаем пустые строки и комментарии
+                }
+
+                out.println("Выполняется команда из скрипта: " + line);
+
+                String[] parts = line.split("\\s+");
+                String commandName = parts[0];
+                String[] commandArgs = new String[parts.length - 1];
+                if (parts.length > 1) {
+                    System.arraycopy(parts, 1, commandArgs, 0, commandArgs.length);
+                }
+
+                Command command = commandMap.get(commandName);
+                if (command == null) {
+                    out.println("Неизвестная команда в скрипте: " + commandName);
+                    continue;
+                }
+
+                try {
+                    // Передаем System.in для интерактивного ввода с консоли
+                    command.execute(env, out, System.in, commandArgs);
+                } catch (Exception e) {
+                    out.println("Ошибка при выполнении команды '" + commandName + "': " + e.getMessage());
                 }
             }
-            out.println("Скрипт " + fileName + " успешно выполнен.");
-        } catch (FileNotFoundException e) {
-            throw new CommandException("Файл " + fileName + " не найден.");
+        } catch (IOException e) {
+            throw new CommandException("Ошибка при чтении файла скрипта: " + e.getMessage());
+        } finally {
+            executingScripts.remove(absolutePath);
         }
     }
 
@@ -51,9 +83,8 @@ public class ExecuteScriptCommand extends Command {
         return "считать и исполнить скрипт из указанного файла";
     }
 
-    public static void register(HashMap<String, Command> commandMap, RouteCollection routeCollection) {
-        ExecuteScriptCommand executeScriptCommand = new ExecuteScriptCommand(routeCollection);
+    public static void register(HashMap<String, Command> commandMap) {
+        ExecuteScriptCommand executeScriptCommand = new ExecuteScriptCommand(commandMap);
         commandMap.put(executeScriptCommand.getName(), executeScriptCommand);
     }
 }
-*/
