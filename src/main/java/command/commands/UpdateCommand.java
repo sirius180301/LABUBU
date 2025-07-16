@@ -3,64 +3,86 @@ package command.commands;
 import command.RouteReader;
 import command.base.Command;
 import command.base.Enviroment;
+
+import command.base.database.DatabaseManager;
 import command.exeptions.CommandException;
 import command.managers.RouteCollection;
 import model.Route;
 
 import java.io.InputStream;
 import java.io.PrintStream;
+import java.sql.SQLException;
 import java.util.HashMap;
-import java.util.NoSuchElementException;
 
 public class UpdateCommand extends Command {
     private final RouteCollection routeCollection;
-    private String username;
+    static DatabaseManager dbManager;
+    //private static final DatabaseManager dbManager = null;
 
-    public UpdateCommand(RouteCollection routeCollection) {
+    public UpdateCommand(RouteCollection routeCollection, DatabaseManager dbManager) {
         super("update");
         this.routeCollection = routeCollection;
+        this.dbManager = dbManager;
     }
 
     @Override
     public void execute(Enviroment env, PrintStream out, InputStream in, String[] args) throws CommandException {
-        if (args.length != 1) {
-            throw new CommandException("Неверное количество аргументов для команды update. Требуется id.");
+        if (env.getCurrentUser() == null) {
+            throw new CommandException("Authentication required. Use 'login'.");
         }
+
+        if (args.length != 1) {
+            throw new CommandException("Usage: update <id>");
+        }
+
         try {
             long id = Long.parseLong(args[0]);
-            Route existingRoute = null;
-            for (Route route : routeCollection.getRoute()) {
-                if (route.getId() == id) {
-                    existingRoute = route;
-                    break;
-                }
-            }
+            Route existingRoute = findRouteById(id);
+
             if (existingRoute == null) {
-                throw new CommandException("Маршрут с указанным id не найден.");
+                throw new CommandException("Route with ID " + id + " not found");
             }
 
+            if (!existingRoute.getUsername().equals(env.getCurrentUser())) {
+                throw new CommandException("You can only update your own routes");
+            }
+
+            out.println("Updating route #" + id);
             Route updatedRoute = RouteReader.readRoute(in, out, routeCollection);
             updatedRoute.setId(id);
+            updatedRoute.setUsername(env.getCurrentUser());
 
-            routeCollection.getRoute().remove(existingRoute);
-            routeCollection.getRoute().add(updatedRoute);
-            routeCollection.sortRouteCollection();
+            if (dbManager.updateRoute(updatedRoute)) {
+                routeCollection.reassignIds();
+                out.println("Route #" + id + " updated successfully");
+            } else {
+                throw new CommandException("Failed to update route in database");
+            }
 
-            out.println("Элемент с id " + id + " успешно обновлен.");
         } catch (NumberFormatException e) {
-            throw new CommandException("Неверный формат id. Id должен быть числом.");
-        } catch (NoSuchElementException e) {
-            throw new CommandException("Ошибка при обновлении элемента: " + e.getMessage());
+            throw new CommandException("Invalid ID format");
+        } catch (SQLException e) {
+            throw new CommandException("Database error: " + e.getMessage());
         }
+    }
+
+    private Route findRouteById(long id) {
+        return routeCollection.getRoute().stream()
+                .filter(r -> r.getId() == id)
+                .findFirst()
+                .orElse(null);
     }
 
     @Override
     public String getHelp() {
-        return "обновить значение элемента коллекции, id которого равен заданному";
+        return "update an existing route by ID";
     }
 
-    public static void register(HashMap<String, Command> commandMap, RouteCollection routeCollection) {
-        UpdateCommand updateCommand = new UpdateCommand(routeCollection);
-        commandMap.put(updateCommand.getName(), updateCommand);
+    public static void register(HashMap<String, Command> commandMap,
+                                RouteCollection routeCollection, DatabaseManager dbManager) {
+        UpdateCommand UpdateCommand = new UpdateCommand(routeCollection, command.commands.UpdateCommand.dbManager);
+
+
+        //commandMap.put("update", new UpdateCommand(routeCollection, dbManager));
     }
 }

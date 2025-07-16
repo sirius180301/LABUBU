@@ -1,40 +1,59 @@
 package command.base.database;
 
-
-import command.exeptions.CommandException;
-
+import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.sql.SQLException;
+import java.sql.*;
+import java.util.Base64;
 
 public class UserAuthenticator {
+    private final DatabaseManager dbManager;
 
-    private final DatabaseHandler databaseHandler;
-
-    public UserAuthenticator(DatabaseHandler databaseHandler) {
-        this.databaseHandler = databaseHandler;
+    public UserAuthenticator(DatabaseManager dbManager) {
+        this.dbManager = dbManager;
     }
 
-    public boolean registerUser(String username, String password) throws CommandException {
-        try {
-            if (databaseHandler.registerUser(username, password)) {
-                return true;
-            } else {
-                throw new CommandException("Ошибка при регистрации пользователя.");
-            }
+    public boolean registerUser(String username, String password) throws SQLException {
+        String hashedPassword = hashPassword(password);
+
+        try (Connection conn = dbManager.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(
+                     "INSERT INTO users (username, password_hash) VALUES (?, ?)")) {
+
+            stmt.setString(1, username);
+            stmt.setString(2, hashedPassword);
+            return stmt.executeUpdate() > 0;
         } catch (SQLException e) {
-            throw new CommandException("Ошибка базы данных при регистрации: " + e.getMessage());
-        } catch (NoSuchAlgorithmException e) {
-            throw new CommandException("Ошибка хеширования пароля: " + e.getMessage());
+            if (e.getSQLState().equals("23505")) { // Ошибка уникальности
+                throw new SQLException("Пользователь с таким именем уже существует");
+            }
+            throw e;
         }
     }
 
-    public boolean authenticateUser(String username, String password) throws CommandException {
+    public boolean authenticateUser(String username, String password) throws SQLException {
+        String hashedPassword = hashPassword(password);
+
+        try (Connection conn = dbManager.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(
+                     "SELECT password_hash FROM users WHERE username = ?")) {
+
+            stmt.setString(1, username);
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getString("password_hash").equals(hashedPassword);
+                }
+            }
+            return false;
+        }
+    }
+
+    private String hashPassword(String password) {
         try {
-            return databaseHandler.checkCredentials(username, password);
-        } catch (SQLException e) {
-            throw new CommandException("Ошибка базы данных при аутентификации: " + e.getMessage());
+            MessageDigest md = MessageDigest.getInstance("SHA-1");
+            byte[] hash = md.digest(password.getBytes());
+            return Base64.getEncoder().encodeToString(hash);
         } catch (NoSuchAlgorithmException e) {
-            throw new CommandException("Ошибка хеширования пароля: " + e.getMessage());
+            throw new RuntimeException("Ошибка хэширования пароля", e);
         }
     }
 }

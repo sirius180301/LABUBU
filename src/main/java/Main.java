@@ -1,190 +1,192 @@
 import command.base.Command;
 import command.base.Enviroment;
+import command.base.database.DatabaseManager;
+import command.base.database.UserAuthenticator;
 import command.commands.*;
-import command.exeptions.CommandException;
 import command.managers.RouteCollection;
-import model.Coordinates;
-import model.Location;
-import model.Route;
 
-import javax.xml.bind.JAXBContext;
-import javax.xml.bind.JAXBException;
-import javax.xml.bind.Marshaller;
-import javax.xml.bind.Unmarshaller;
-import java.io.*;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Scanner;
-
-
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 public class Main {
+    private static String connectionString = "jdbc:postgresql://pg:2222/studs?user=s465878&password=0pKaKsNIQxLhWHSt";
+    private static String username = "s465878";
+    private static String password = "0pKaKsNIQxLhWHSt";
+    private static String db = "studs";
+    private static int port = 2222;
+    private static String host = "pg";
 
+    private static DatabaseManager dbManager;
+    private static RouteCollection routeCollection;
+    private static Enviroment env;
+    private static final Lock collectionLock = new ReentrantLock();
     private static final String ANSI_RED = "\u001B[31m";
     private static final String ANSI_RESET = "\u001B[0m";
 
-    public static void main(String[] args) throws IOException, CommandException {
-        Scanner in = new Scanner(System.in);
-        HashMap<String, Command> map = new HashMap<>();
-        RouteCollection routeCollection = new RouteCollection();
-
-
-        HelpCommand.register(map);
-        InfoCommand.register(map, routeCollection);
-        ShowCommand.register(map, routeCollection);
-        AddCommand.register(map, routeCollection);
-        UpdateCommand.register(map, routeCollection);
-        RemoveByIdCommand.register(map, routeCollection);
-        ClearCommand.register(map, routeCollection);
-        SaveCommand.register(map, routeCollection);  // Зарегистрирована команда save
-        ExecuteScriptCommand.register(map);
-        ExitCommand.register(map);
-        AddIfMaxCommand.register(map, routeCollection);
-        AddIfMinCommand.register(map, routeCollection);
-        RemoveLowerCommand.register(map, routeCollection);
-        MinByCreationDateCommand.register(map, routeCollection);
-        CountLessThanDistanceCommand.register(map, routeCollection);
-        PrintFieldAscendingDistanceCommand.register(map, routeCollection);
-
-        Enviroment enviroment = new Enviroment(map);
-
-        String filePath = System.getenv("ROUTE_DATA_FILE");
-        //Files.deleteIfExists(Paths.get("Nastya.xml"));
-         File file = new File("Nastya.xml");
-        System.out.println("Существует ли файл? " + file.exists());
-        System.out.println("Доступен ли для записи? " + file.canWrite());
-
-        if (filePath == null) {
-            System.out.println(ANSI_RED + "Переменная окружения 'Nastya.xml' не установлена." + ANSI_RESET);
-        } else {
-            file = new File(filePath);
-            if (file.exists()) {
-                if (file.length() == 0) {
-                    System.out.println(ANSI_RED + "Файл пуст: " + filePath + ANSI_RESET);
-                } else {
-                    try {
-                        loadDataFromFile(filePath, routeCollection);
-                        System.out.println("Данные успешно загружены из файла: " + filePath);
-                    } catch (JAXBException | IOException e) {
-                        System.err.println(ANSI_RED + "Ошибка при загрузке данных: " + e.getMessage() + ANSI_RESET);
-                    }
-                }
-            } else {
-                try {
-                    file.createNewFile();
-                    System.out.println("Создан новый файл: " + filePath);
-                    System.out.println("Доступен ли для записи? " + file.canWrite());
-                    System.out.println("Существует ли файл? " + file.exists());
-                } catch (IOException e) {
-                    System.err.println(ANSI_RED + "Не удалось создать файл: " + e.getMessage() + ANSI_RESET);
-                }
-            }
-        }
-
-        System.out.println("Программа управления коллекцией Route запущена. Введите 'help' для просмотра доступных команд.");
-        System.out.println("*подсказка: команда add добавляет элемент в коллекцию. Советую начать с этого)");
-        while (true) {
-            System.out.print("> "); // Добавляем знак > перед вводом команды
-            System.out.flush(); // Обеспечиваем немедленный вывод
-            System.out.print("Введите команду: "); // Чтобы было понятно, что программа ждет ввод
-            if (!in.hasNextLine()) {
-                System.out.println("Завершение работы.");
-                break; // Или System.exit(0); если нужно завершить программу при EOF
-            }
-            String line = in.nextLine();
-            String[] s = line.split(" ");
-            if (s.length == 0) {
-                System.out.println(ANSI_RED + "Вы не ввели команду." + ANSI_RESET);
-                continue;
-            }
-
-            String[] commandsArgs = new String[s.length - 1];
-            if (s.length > 1) {
-                System.arraycopy(s, 1, commandsArgs, 0, commandsArgs.length);
-            }
-
-            if (map.containsKey(s[0])) {
-                Command command = map.get(s[0]);
-                try {
-                    command.execute(enviroment, System.out, System.in, commandsArgs);
-                    // Сохраняем после каждой команды, которая изменяет коллекцию (добавление, изменение, удаление).
-                    // Также сохраняем после команды clear, т.к. она очищает коллекцию.
-                    if (command.getName().equals("add") || command.getName().equals("update") || command.getName().equals("remove_by_id") || command.getName().equals("clear") || command.getName().equals("save")) {
-                        saveData(filePath, routeCollection); // Используем filePath из main
-                    }
-
-                } catch (CommandException e) {
-                    System.err.println(ANSI_RED + e.getMessage() + ANSI_RESET);
-                } catch (Exception e) { //  Обрабатываем другие исключения, включая JAXBException и IOException
-                    System.err.println(ANSI_RED + "Непредвиденная ошибка при выполнении команды: " + e.getMessage() + ANSI_RESET);
-                }
-            } else {
-                System.out.println(ANSI_RED + "Неизвестная команда: " + s[0] + ANSI_RESET);
-                System.out.println("Введите 'help' для просмотра доступных команд.");
-            }
-        }
-    }
-
-    private static void loadDataFromFile(String filePath, RouteCollection routeCollection) throws JAXBException, IOException {
-        File file = new File(filePath);
-        if (!file.exists() || file.length() == 0) {
-            throw new FileNotFoundException("Файл не существует или пуст: " + filePath);
-        }
-
-        JAXBContext jaxbContext = JAXBContext.newInstance(RouteCollection.class, Route.class, Coordinates.class, Location.class);
-        Unmarshaller unmarshaller = jaxbContext.createUnmarshaller();
-        try (InputStreamReader reader = new InputStreamReader(new FileInputStream(filePath), "UTF-8")) {
-            RouteCollection loadedCollection = (RouteCollection) unmarshaller.unmarshal(reader);
-            if (loadedCollection != null && loadedCollection.getRoute() != null) { // Проверка на null
-                routeCollection.getRoute().addAll(loadedCollection.getRoute());
-            }
-            routeCollection.manageDHashSet(); // Валидация ID после загрузки
-        }
-    }
-
-
-
-    private static void saveData(String filePath, RouteCollection routeCollection) {
-        if (filePath == null) {
-            System.out.println(ANSI_RED + "Переменная окружения не задана." + ANSI_RESET);
-            return;
-        }
-
-        /*JAXBContext jaxbContext = null;
-        Marshaller marshaller = null;
-        BufferedOutputStream outputStream = null;
-
-
+    public static void main(String[] args) {
         try {
-            jaxbContext = JAXBContext.newInstance(RouteCollection.class, Route.class, Coordinates.class, Location.class);
-            marshaller = jaxbContext.createMarshaller();
-            marshaller.setProperty(Marshaller.JAXB_FORMATTED_OUTPUT, true);
-            marshaller.setProperty(Marshaller.JAXB_ENCODING, "UTF-8");
-
-            outputStream = new BufferedOutputStream(Files.newOutputStream(Paths.get(filePath)));
-            marshaller.marshal(routeCollection, new OutputStreamWriter(outputStream, "UTF-8"));
-            System.out.println("Данные успешно сохранены в файл: " + filePath);
-
-
-
-        } catch (JAXBException e) {
-            System.err.println(ANSI_RED + "Ошибка при сериализации в XML: " + e.getMessage() + ANSI_RESET);
-        } catch (IOException e) {
-            System.err.println(ANSI_RED + "Ошибка при записи в файл: " + e.getMessage() + ANSI_RESET);
-        } finally {
-            // Ensure outputStream is closed even if exceptions occur
-            if (outputStream != null) {
-                try {
-                    outputStream.close();
-                } catch (IOException e) {
-                    System.err.println(ANSI_RED + "Error closing output stream: " + e.getMessage() + ANSI_RESET);
+            for(String arg : args) {
+                String parameterName = arg.substring(0, arg.indexOf("="));
+                if(parameterName.equals("host")) {
+                    host = arg.substring(arg.indexOf("=") + 1);
                 }
-            }*/
+                if(parameterName.equals("port")) {
+                    port = Integer.parseInt(arg.substring(arg.indexOf("=") + 1));
+                }
+                if(parameterName.equals("db")) {
+                    db = arg.substring(arg.indexOf("=") + 1);;
+                }
+                if(parameterName.equals("user")) {
+                    username = arg;
+                }
+                if(parameterName.equals("password")) {
+                    password = arg;
+                }
+            }
+            connectionString = "jdbc:postgresql://" + host + ":" + port + "/" + db;
+        } catch (Exception e) {
+            System.err.println("Ошибка запуска приложения: " + e.getMessage());
+        }
+
+        try (Scanner scanner = new Scanner(System.in)) {
+            // Шаг 1: Получение параметров подключения к БД
+            System.out.println("=== Настройка подключения к PostgreSQL ===");
+            String dbUrl = getDbUrl(scanner);
+            String dbUser = getInput(scanner, "Имя пользователя PostgreSQL: ", false);
+            String dbPassword = getInput(scanner, "Пароль PostgreSQL: ", true);
+
+            // Шаг 2: Инициализация подключения
+            initializeDatabase(scanner, dbUrl, dbUser, dbPassword);
+
+            // Шаг 3: Инициализация аутентификатора пользователей
+            UserAuthenticator userAuthenticator = new UserAuthenticator(dbManager);
+
+            // Шаг 4: Регистрация команд
+            HashMap<String, Command> commands = new HashMap<>();
+            registerCommands(commands, routeCollection, collectionLock, dbManager, userAuthenticator);
+
+            // Шаг 5: Создание окружения
+            env = new Enviroment(commands);
+
+            // Шаг 6: Запуск основного цикла
+            System.out.println("\n=== Route Manager ===");
+            System.out.println("Доступные команды: help, register, login, ...");
+            runCommandLoop(scanner);
+
+        } catch (Exception e) {
+            System.err.println(ANSI_RED + "Фатальная ошибка: " + e.getMessage() + ANSI_RESET);
+            e.printStackTrace();
+        }
     }
 
+    private static String getDbUrl(Scanner scanner) {
+        //System.out.print("URL подключения к БД [по умолчанию jdbc:postgresql://localhost:5432/route]: ");
+        String input =connectionString;
+        return input.isEmpty() ? "jdbc:postgresql://localhost:5432/route" : input;
+    }
+
+    private static String getInput(Scanner scanner, String prompt, boolean isPassword) {
+        System.out.print(prompt);
+        return scanner.nextLine().trim();
+    }
+
+
+    private static void initializeDatabase(Scanner scanner, String dbUrl, String dbUser, String dbPassword)
+            throws Exception {
+        while (true) {
+            try {
+                System.out.println("\nПопытка подключения к БД...");
+                dbManager = new DatabaseManager(dbUrl, dbUser, dbPassword);
+
+                // Проверка подключения
+                 if (!dbManager.testConnection()) {
+                    throw new Exception("Не удалось подключиться к БД");
+                  }
+
+                // Загрузка коллекции
+                routeCollection = new RouteCollection();
+                dbManager.loadCollection(routeCollection);
+                System.out.println("Успешное подключение к БД!");
+                break;
+
+            } catch (Exception e) {
+                System.err.println(ANSI_RED + "Ошибка подключения: " + e.getMessage() + ANSI_RESET);
+                System.out.println("Проверьте параметры подключения и повторите попытку");
+
+                System.out.print("Хотите изменить параметры подключения? (y/n): ");
+                if (!scanner.nextLine().trim().equalsIgnoreCase("y")) {
+                    throw new Exception("Не удалось подключиться к БД. Приложение завершает работу.");
+                }
+
+                // Повторный ввод параметров
+                dbUrl = getDbUrl(scanner);
+                dbUser = getInput(scanner, "Имя пользователя PostgreSQL: ", false);
+                dbPassword = getInput(scanner, "Пароль PostgreSQL: ", true);
+            }
+        }
+    }
+
+    public static void registerCommands(HashMap<String, Command> commands,
+                                        RouteCollection routeCollection,
+                                        Lock collectionLock,
+                                        DatabaseManager dbManager,
+                                        UserAuthenticator userAuthenticator) {
+        HelpCommand.register(commands);
+        InfoCommand.register(commands, routeCollection);
+        ShowCommand.register(commands, routeCollection);
+        AddCommand.register(commands, routeCollection, collectionLock, dbManager);
+        UpdateCommand.register(commands, routeCollection, dbManager);
+        RemoveByIdCommand.register(commands, routeCollection, collectionLock, dbManager);
+        ClearCommand.register(commands, routeCollection);
+        ExitCommand.register(commands);
+        AddIfMaxCommand.register(commands, routeCollection, collectionLock, dbManager);
+        AddIfMinCommand.register(commands, routeCollection, collectionLock, dbManager);
+        RemoveLowerCommand.register(commands, routeCollection, collectionLock, dbManager);
+        MinByCreationDateCommand.register(commands, routeCollection);
+        CountLessThanDistanceCommand.register(commands, routeCollection);
+        PrintFieldAscendingDistanceCommand.register(commands, routeCollection, dbManager);
+        RegisterCommand.register(commands, userAuthenticator);
+        LoginCommand.register(commands, userAuthenticator);
+        SaveCommand.register(commands, dbManager);
+        ExecuteScriptCommand.register(commands);
+    }
+
+    private static void runCommandLoop(Scanner scanner) {
+        while (true) {
+            try {
+                System.out.print(env.getCurrentUser() != null ?
+                        env.getCurrentUser() + "> " : "> ");
+
+                String input = scanner.nextLine().trim();
+                if (input.isEmpty()) continue;
+
+                String[] parts = input.split("\\s+");
+                String commandName = parts[0];
+                String[] args = new String[parts.length - 1];
+                System.arraycopy(parts, 1, args, 0, args.length);
+
+
+                // Проверка авторизации для команд, кроме login и register
+                if (!commandName.equals("login") && !commandName.equals("register") &&
+                        env.getCurrentUser() == null) {
+                    System.out.println(ANSI_RED + "Ошибка: необходимо авторизоваться (команды login или register)"
+                            + ANSI_RESET);
+                    continue;
+                }
+
+                Command cmd = env.getCommands().get(commandName);
+                if (cmd == null) {
+                    System.out.println("Неизвестная команда. Введите 'help' для списка команд.");
+                    continue;
+                }
+
+                cmd.execute(env, System.out, System.in, args);
+
+            } catch (Exception e) {
+                System.err.println(ANSI_RED + "Ошибка: " + e.getMessage() + ANSI_RESET);
+            }
+        }
+    }
 }
-
-
-

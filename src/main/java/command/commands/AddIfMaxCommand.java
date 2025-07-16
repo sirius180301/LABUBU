@@ -3,6 +3,7 @@ package command.commands;
 import command.RouteReader;
 import command.base.Command;
 import command.base.Enviroment; // Исправлено название класса
+import command.base.database.DatabaseManager;
 import command.exeptions.CommandException; // Исправлено название пакета
 import command.managers.RouteCollection;
 import model.Route;
@@ -12,6 +13,7 @@ import java.io.PrintStream;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.NoSuchElementException;
+import java.util.concurrent.locks.Lock;
 
 /**
  * Класс AddIfMaxCommand представляет собой команду для добавления нового маршрута в коллекцию,
@@ -70,8 +72,10 @@ public class AddIfMaxCommand extends Command {
      *
      * @param commandMap      карта команд
      * @param routeCollection коллекция маршрутов
+     * @param collectionLock
+     * @param dbManager
      */
-    public static void register(HashMap<String, Command> commandMap, RouteCollection routeCollection) {
+    public static void register(HashMap<String, Command> commandMap, RouteCollection routeCollection, Lock collectionLock, DatabaseManager dbManager) {
         AddIfMaxCommand addIfMaxCommand = new AddIfMaxCommand(routeCollection);
         commandMap.put(addIfMaxCommand.getName(), addIfMaxCommand);
     }

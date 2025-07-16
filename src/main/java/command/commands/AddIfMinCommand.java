@@ -3,6 +3,7 @@ package command.commands;
 import command.RouteReader;
 import command.base.Command;
 import command.base.Enviroment;
+import command.base.database.DatabaseManager;
 import command.exeptions.CommandException;
 import command.managers.RouteCollection;
 import model.Route;
@@ -12,6 +13,7 @@ import java.io.PrintStream;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.NoSuchElementException;
+import java.util.concurrent.locks.Lock;
 
 public class AddIfMinCommand extends Command {
     private final RouteCollection routeCollection;
@@ -42,9 +44,8 @@ public class AddIfMinCommand extends Command {
         return "добавить новый элемент в коллекцию, если его значение меньше, чем у наименьшего элемента этой коллекции";
     }
 
-    public static void register(HashMap<String, Command> commandMap, RouteCollection routeCollection) {
+    public static void register(HashMap<String, Command> commandMap, RouteCollection routeCollection, Lock collectionLock, DatabaseManager dbManager) {
         AddIfMinCommand addIfMinCommand = new AddIfMinCommand(routeCollection);
         commandMap.put(addIfMinCommand.getName(), addIfMinCommand);
     }
 }
-

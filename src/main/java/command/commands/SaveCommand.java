@@ -2,80 +2,61 @@ package command.commands;
 
 import command.base.Command;
 import command.base.Enviroment;
+import command.base.database.DatabaseManager;
 import command.exeptions.CommandException;
 import command.managers.RouteCollection;
 
-import javax.xml.bind.JAXBContext;
-import javax.xml.bind.JAXBException;
-import javax.xml.bind.Marshaller;
-import java.io.*;
+import java.io.InputStream;
+import java.io.PrintStream;
+import java.sql.SQLException;
 import java.util.HashMap;
 
+import static java.lang.System.out;
+
 public class SaveCommand extends Command {
-    private final String filePath;
-    private final File file;
+    private final DatabaseManager dbManager;
     private final RouteCollection routeCollection;
-    private final JAXBContext context;
-    private final Marshaller marshaller;
 
-    public SaveCommand(RouteCollection routeCollection) throws CommandException {
+    public SaveCommand(RouteCollection routeCollection, DatabaseManager dbManager) {
         super("save");
+        this.dbManager = dbManager;
         this.routeCollection = routeCollection;
-
-        filePath = System.getenv("ROUTE_DATA_FILE");
-        if (filePath == null) {
-            throw new CommandException("Переменная окружения ROUTE_DATA_FILE не задана. Сохранение в файл невозможно.");
-        }
-        file = new File(filePath);
-
-        try {
-            context = JAXBContext.newInstance(RouteCollection.class);
-            marshaller = context.createMarshaller();
-            marshaller.setProperty(Marshaller.JAXB_FORMATTED_OUTPUT, Boolean.TRUE);
-        } catch (JAXBException e) {
-            throw new CommandException("Ошибка при сериализации/десериализации");
-        }
     }
 
+    /*@Override
+    public void execute(Enviroment env, PrintStream out, String[] args) throws CommandException {
+        if (env.getCurrentUser() == null) {
+            throw new CommandException("Вы не авторизованы. Используйте команду login.");
+        }
+
+        try {
+            dbManager.saveAllChanges();
+            out.println("Все изменения успешно сохранены в базу данных");
+        } catch (SQLException e) {
+            throw new CommandException("Ошибка при сохранении в базу данных: " + e.getMessage());
+        }*/
+    //}
+
     @Override
-    public void execute(Enviroment env, PrintStream out, InputStream in, String[] args) throws CommandException {
-        prepareSaveFile();
-        System.out.println("Данные успешно сохранены в файл "+  filePath);
-        try (BufferedWriter writer = new BufferedWriter(new FileWriter(file))) {
-            writer.write(convertToXML(routeCollection));
-        } catch (IOException e) {
-            System.out.println("Ошибка при сохранении");
+    public void execute(Enviroment env, PrintStream stdin, InputStream stdout, String[] commandsArgs) throws CommandException {
+        if (env.getCurrentUser() == null) {
+            throw new CommandException("Вы не авторизованы. Используйте команду login.");
+        }
+
+        try {
+            dbManager.saveAllChanges();
+            out.println("Все изменения успешно сохранены в базу данных");
+        } catch (SQLException e) {
+            throw new CommandException("Ошибка при сохранении в базу данных: " + e.getMessage());
         }
     }
 
     @Override
     public String getHelp() {
-        return "сохранить коллекцию в файл";
+        return "сохранить все изменения в базу данных";
     }
 
-    public static void register(HashMap<String, Command> commandMap, RouteCollection routeCollection) throws CommandException {
-        SaveCommand saveCommand = new SaveCommand(routeCollection);
-        commandMap.put(saveCommand.getName(), saveCommand);
-    }
-
-    private void prepareSaveFile() throws CommandException {
-        try {
-            if (!file.exists()) {
-                if (file.createNewFile()) {
-                    System.out.println("Создан новый файл сохранения");
-                }
-            }
-        } catch (IOException e) {
-            throw new CommandException("Ошибка при создании файла");
-        }
-    }
-
-    public String convertToXML(RouteCollection collection) throws CommandException {
-        try(StringWriter stringWriter = new StringWriter()) {
-            marshaller.marshal(collection, stringWriter);
-            return stringWriter.toString();
-        } catch (JAXBException | IOException e) {
-            throw new CommandException("Ошибка при сериализации.");
-        }
+    public static void register(HashMap<String, Command> commandMap, DatabaseManager dbManager) {
+        commandMap.put("save", new SaveCommand(new RouteCollection(),dbManager));
     }
 }

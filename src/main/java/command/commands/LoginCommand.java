@@ -8,6 +8,7 @@ import command.exeptions.CommandException;
 
 import java.io.InputStream;
 import java.io.PrintStream;
+import java.sql.SQLException;
 import java.util.HashMap;
 
 public class LoginCommand extends Command {
@@ -36,6 +37,8 @@ public class LoginCommand extends Command {
             }
         } catch (CommandException e) {
             throw new CommandException("Ошибка при входе: " + e.getMessage());
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
         }
     }
 

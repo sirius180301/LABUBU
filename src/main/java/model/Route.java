@@ -4,10 +4,7 @@ package model;
 import java.time.LocalDateTime;
 import java.util.Objects;
 
-import javax.xml.bind.annotation.XmlElement;
-import javax.xml.bind.annotation.XmlRootElement;
-import javax.xml.bind.annotation.XmlType;
-import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
+
 
 import command.managers.LocalDateTimeAdapter;
 
@@ -16,8 +13,7 @@ import command.managers.LocalDateTimeAdapter;
  * координатами, датой создания, начальной и конечной точками, а также расстоянием.
  * Реализует интерфейс Comparable для сравнения маршрутов по расстоянию.
  */
-@XmlRootElement(name = "route")
-@XmlType(propOrder = {"id", "name", "coordinates", "creationDate", "from", "to", "distance"})
+
 public class Route implements Comparable<Route> {
 
     /**
@@ -88,7 +84,7 @@ public class Route implements Comparable<Route> {
      * Возвращает идентификатор маршрута
      * @return идентификатор маршрута
      */
-    @XmlElement(name = "id")
+
     public long getId() {
         return id;
     }
@@ -105,7 +101,7 @@ public class Route implements Comparable<Route> {
      * Возвращает название маршрута
      * @return название маршрута
      */
-    @XmlElement(name = "name")
+
     public String getName() {
         return name;
     }
@@ -123,7 +119,7 @@ public class Route implements Comparable<Route> {
      * Возвращает координаты маршрута
      * @return объект Coordinates
      */
-    @XmlElement(name = "coordinates")
+
     public Coordinates getCoordinates() {
         return coordinates;
     }
@@ -141,8 +137,7 @@ public class Route implements Comparable<Route> {
      * Возвращает дату создания маршрута
      * @return дата создания
      */
-    @XmlElement
-    @XmlJavaTypeAdapter(LocalDateTimeAdapter.class)
+
     public LocalDateTime getCreationDate() {
         return creationDate;
     }
@@ -159,7 +154,7 @@ public class Route implements Comparable<Route> {
      * Возвращает начальную точку маршрута
      * @return объект Location
      */
-    @XmlElement(name = "from")
+
     public Location getFrom() {
         return from;
     }
@@ -177,7 +172,7 @@ public class Route implements Comparable<Route> {
      * Возвращает конечную точку маршрута
      * @return объект Location
      */
-    @XmlElement(name = "to")
+
     public Location getTo() {
         return to;
     }
@@ -195,7 +190,6 @@ public class Route implements Comparable<Route> {
      * Возвращает расстояние маршрута
      * @return расстояние (может быть null)
      */
-    @XmlElement(name = "distance")
     public Float getDistance() {
         return distance;
     }
@@ -245,4 +239,12 @@ public class Route implements Comparable<Route> {
     public int hashCode() {
         return Objects.hash(id);
     }
+
+    public String getUsername() {
+        return username;
+    }
+    public void setUsername(String username) {
+        this.username = username;
+    }
+
 }

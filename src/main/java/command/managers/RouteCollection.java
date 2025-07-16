@@ -2,9 +2,6 @@ package command.managers;
 
 import model.Route;
 
-import javax.xml.bind.annotation.XmlElement;
-import javax.xml.bind.annotation.XmlRootElement;
-import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
 import java.time.LocalDateTime;
 import java.util.*;
 
@@ -12,7 +9,7 @@ import java.util.*;
  * Класс RouteCollection представляет собой коллекцию маршрутов.
  * Он хранит информацию о времени создания коллекции и предоставляет методы для управления маршрутами.
  */
-@XmlRootElement(name = "routes")
+
 public class RouteCollection {
 
     private LinkedHashSet<Route> routes;
@@ -24,13 +21,10 @@ public class RouteCollection {
         this.routes = new LinkedHashSet<>();
     }
 
-    @XmlElement
-    @XmlJavaTypeAdapter(LocalDateTimeAdapter.class)
     public LocalDateTime getCreationDate() {
         return creationDate;
     }
 
-    @XmlElement
     public LinkedHashSet<Route> getRoute() {
         return (routes);
     }
@@ -73,15 +67,20 @@ public class RouteCollection {
         return routes.iterator();
     }
 
-    private void reassignIds() {
+    public void reassignIds() {
         nextId = 1;
+
+        List<Route> routeList = new ArrayList<>(routes);
+        routeList.sort(Comparator.comparingLong(Route::getId));
         LinkedHashSet<Route> newRoutes = new LinkedHashSet<>();
-        for (Route route : routes) {
+        for (Route route : routeList) {
             route.setId(nextId++);
             newRoutes.add(route);
         }
         routes = newRoutes;
     }
+
+
 
     /**
      * Управляет дублирующимися ID в коллекции маршрутов.

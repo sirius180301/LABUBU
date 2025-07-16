@@ -6,13 +6,12 @@ import model.Location;
 import model.Route;
 import command.managers.RouteCollection;
 
-import javax.xml.bind.annotation.XmlRootElement;
 import java.io.InputStream;
 import java.io.PrintStream;
 import java.util.NoSuchElementException;
 import java.util.Scanner;
 
-@XmlRootElement
+
 public class RouteReader {
 
     private static final String ANSI_RED = "\u001B[31m";

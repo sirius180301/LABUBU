@@ -1,8 +1,6 @@
 package model;
 
-import javax.xml.bind.annotation.XmlElement;
-import javax.xml.bind.annotation.XmlRootElement;
-import javax.xml.bind.annotation.XmlType;
+
 import java.util.Objects;
 
 /**
@@ -10,8 +8,7 @@ import java.util.Objects;
  * Используется для хранения координат маршрута.
  * Поддерживает сериализацию в XML через JAXB.
  */
-@XmlRootElement(name = "coordinates")
-@XmlType(propOrder = {"x", "y"})
+
 public class Coordinates {
 
     /**
@@ -27,8 +24,7 @@ public class Coordinates {
     /**
      * Конструктор класса Coordinates.
      *
-     * @param x координата по оси X
-     * @param y координата по оси Y (не может быть null)
+     *
      * @throws NullPointerException если параметр y равен null
      */
     public Coordinates(){}
@@ -51,7 +47,7 @@ public class Coordinates {
      *
      * @return координата X
      */
-    @XmlElement
+
     public int getX() {
         return x;
     }
@@ -71,7 +67,7 @@ public class Coordinates {
      *
      * @return координата Y
      */
-    @XmlElement
+
     public Double getY() {
         return y;
     }

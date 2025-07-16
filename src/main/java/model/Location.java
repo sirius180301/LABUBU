@@ -1,8 +1,6 @@
 package model;
 
-import javax.xml.bind.annotation.XmlElement;
-import javax.xml.bind.annotation.XmlRootElement;
-import javax.xml.bind.annotation.XmlType;
+
 import java.util.Objects;
 
 /**
@@ -10,8 +8,7 @@ import java.util.Objects;
  * с координатами x (долгота), y (широта) и z (высота).
  * Координата y не может быть null.
  */
-@XmlRootElement(name = "location")
-@XmlType(propOrder = {"x", "y", "z"})
+
 public class Location {
 
     /**
@@ -51,7 +48,7 @@ public class Location {
      *
      * @return координата x
      */
-    @XmlElement
+
     public long getX() {
         return x;
     }
@@ -70,7 +67,7 @@ public class Location {
      *
      * @return координата y
      */
-    @XmlElement
+
     public Double getY() {
         return y;
     }
@@ -90,7 +87,7 @@ public class Location {
      *
      * @return координата z
      */
-    @XmlElement
+
     public int getZ() {
         return z;
     }
