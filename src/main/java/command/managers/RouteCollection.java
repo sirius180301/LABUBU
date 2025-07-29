@@ -3,36 +3,30 @@ package command.managers;
 import model.Route;
 
 import java.time.LocalDateTime;
-import java.util.*;
-
-/**
- * Класс RouteCollection представляет собой коллекцию маршрутов.
- * Он хранит информацию о времени создания коллекции и предоставляет методы для управления маршрутами.
- */
+import java.util.Comparator;
+import java.util.LinkedHashSet;
 
 public class RouteCollection {
-
     private LinkedHashSet<Route> routes;
     private final LocalDateTime creationDate;
-    public long nextId = 1; // Следующий доступный ID
+
+    // Возвращаем наш счетчик ID
+    public long nextId = 1;
 
     public RouteCollection() {
         this.creationDate = LocalDateTime.now();
         this.routes = new LinkedHashSet<>();
     }
 
-    public LocalDateTime getCreationDate() {
-        return creationDate;
-    }
-
     public LinkedHashSet<Route> getRoute() {
-        return (routes);
+        return routes;
     }
 
     public void setRoutes(LinkedHashSet<Route> routes) {
         this.routes = routes;
     }
 
+    // Метод add теперь снова назначает ID
     public void add(Route route) {
         route.setId(nextId++);
         this.routes.add(route);
@@ -40,12 +34,32 @@ public class RouteCollection {
 
     public void removeById(long id) {
         routes.removeIf(route -> route.getId() == id);
-        reassignIds();
     }
 
     public void clear() {
         this.routes.clear();
-        nextId = 1; // Сбрасываем ID при очистке
+        this.nextId = 1;
+    }
+
+    /**
+     * НОВЫЙ И САМЫЙ ВАЖНЫЙ МЕТОД
+     * находит максимальный ID в текущей коллекции и устанавливает
+     * счетчик nextId в значение maxId + 1.
+     */
+    public void findAndSetNextId() {
+        if (routes.isEmpty()) {
+            this.nextId = 1;
+            return;
+        }
+
+        // Находим максимальный ID с помощью Stream API
+        long maxId = routes.stream()
+                .mapToLong(Route::getId)
+                .max()
+                .orElse(0); // orElse(0) на случай, если все ID отрицательные (хотя их не будет)
+
+        this.nextId = maxId + 1;
+        System.out.println("Следующий доступный ID для новых элементов: " + this.nextId);
     }
 
     @Override
@@ -55,44 +69,5 @@ public class RouteCollection {
                 ", type=" + routes.getClass().getName() +
                 ", count=" + routes.size() +
                 '}';
-    }
-
-    public void sortRouteCollection() {
-        List<Route> routeList = new ArrayList<>(routes);
-        Collections.sort(routeList);
-        this.routes = new LinkedHashSet<>(routeList);
-    }
-
-    public Iterator<Route> getIterator() {
-        return routes.iterator();
-    }
-
-    public void reassignIds() {
-        nextId = 1;
-
-        List<Route> routeList = new ArrayList<>(routes);
-        routeList.sort(Comparator.comparingLong(Route::getId));
-        LinkedHashSet<Route> newRoutes = new LinkedHashSet<>();
-        for (Route route : routeList) {
-            route.setId(nextId++);
-            newRoutes.add(route);
-        }
-        routes = newRoutes;
-    }
-
-
-
-    /**
-     * Управляет дублирующимися ID в коллекции маршрутов.
-     * Если обнаружены дублирующиеся ID, они будут перегенерированы.
-     */
-    public void manageDHashSet() {
-        nextId = 1;
-        LinkedHashSet<Route> newRoutes = new LinkedHashSet<>();
-        for (Route route : routes) {
-            route.setId(nextId++);
-            newRoutes.add(route);
-        }
-        routes = newRoutes;
     }
 }

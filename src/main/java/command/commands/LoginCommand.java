@@ -10,6 +10,7 @@ import java.io.InputStream;
 import java.io.PrintStream;
 import java.sql.SQLException;
 import java.util.HashMap;
+import java.util.Scanner;
 
 public class LoginCommand extends Command {
 
@@ -22,23 +23,53 @@ public class LoginCommand extends Command {
 
     @Override
     public void execute(Enviroment env, PrintStream out, InputStream in, String[] args) throws CommandException {
-        if (args.length != 2) {
-            throw new CommandException("Неверное количество аргументов для команды login. Требуется имя пользователя и пароль.");
+        // Команда больше не принимает аргументы
+        if (args.length != 0) {
+            throw new CommandException("Для входа в уже существующий аккаунт введите команду login. Для создания аккаунта введите команду register");
         }
 
-        String username = args[0];
-        String password = args[1];
-
         try {
+            // === НАША НОВАЯ ПРОВЕРКА ===
+            if (!userAuthenticator.hasAnyUsers()) {
+                throw new CommandException("В базе данных нет ни одного зарегистрированного пользователя. Пожалуйста, используйте команду register для регистрации.");
+            }
+            // ============================
+
+            Scanner scanner = new Scanner(in);
+            String username;
+            String password;
+
+            // --- Получаем имя пользователя ---
+            out.print("Введите имя пользователя: ");
+            username = scanner.nextLine().trim();
+            if (username.isEmpty()) {
+                throw new CommandException("Имя пользователя не может быть пустым.");
+            }
+
+            // --- Получаем пароль ---
+            out.print("Введите пароль: ");
+            if (System.console() != null) {
+                char[] passwordChars = System.console().readPassword();
+                password = new String(passwordChars);
+            } else {
+                out.println("\n(Безопасный ввод пароля недоступен. Пароль будет виден при вводе.)");
+                out.print("Введите пароль еще раз: ");
+                password = scanner.nextLine().trim();
+            }
+
+            if (password.isEmpty()) {
+                throw new CommandException("Пароль не может быть пустым.");
+            }
+
+            // --- Основная логика входа ---
             if (userAuthenticator.authenticateUser(username, password)) {
                 out.println("Вход выполнен успешно для пользователя: " + username);
+                env.setCurrentUser(username);
             } else {
-                throw new CommandException("Неверные учетные данные.");
+                throw new CommandException("Неверное имя пользователя или пароль.");
             }
-        } catch (CommandException e) {
-            throw new CommandException("Ошибка при входе: " + e.getMessage());
         } catch (SQLException e) {
-            throw new RuntimeException(e);
+            throw new CommandException("Ошибка при работе с базой данных: " + e.getMessage());
         }
     }
 

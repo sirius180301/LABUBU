@@ -69,11 +69,19 @@ public class Route implements Comparable<Route> {
 
 
 
-    public Route(long id, String name, Coordinates coordinates, Location from, Location to) {
+    public Route(long id, String name, Coordinates coordinates, LocalDateTime creationDate, Location from, Location to, Float distance, String username) {
+        this.id = id;
+        this.name = Objects.requireNonNull(name, "Имя не может быть null.");
+        this.coordinates = Objects.requireNonNull(coordinates, "Координаты не могут быть null.");
+        this.creationDate = Objects.requireNonNull(creationDate, "Дата создания не может быть null.");
+        this.from = Objects.requireNonNull(from, "Местоположение отправления не может быть null.");
+        this.to = Objects.requireNonNull(to, "Местоположение прибытия не может быть null.");
+        this.distance = distance;
+        this.username = Objects.requireNonNull(username, "Имя пользователя не может быть null.");
     }
 
-    public Route(long id, String name, Coordinates coordinates, Location from, Location to, Float distance, String username) {
-    }
+    //public Route(long id, String name, Coordinates coordinates, Location from, Location to, Float distance, String username) {
+   // }
 
     /**
      * Внутренний класс для построения маршрута (не используется в текущей реализации)
@@ -243,7 +251,12 @@ public class Route implements Comparable<Route> {
     public String getUsername() {
         return username;
     }
+
     public void setUsername(String username) {
+
+        if (username == null || username.trim().isEmpty()) {
+            throw new IllegalArgumentException("Имя пользователя (владельца) не может быть пустым.");
+        }
         this.username = username;
     }
 

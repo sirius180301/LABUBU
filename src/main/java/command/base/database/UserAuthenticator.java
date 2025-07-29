@@ -17,7 +17,7 @@ public class UserAuthenticator {
 
         try (Connection conn = dbManager.getConnection();
              PreparedStatement stmt = conn.prepareStatement(
-                     "INSERT INTO users (username, password_hash) VALUES (?, ?)")) {
+                     "INSERT INTO users (name, password) VALUES (?, ?)")) {
 
             stmt.setString(1, username);
             stmt.setString(2, hashedPassword);
@@ -35,12 +35,12 @@ public class UserAuthenticator {
 
         try (Connection conn = dbManager.getConnection();
              PreparedStatement stmt = conn.prepareStatement(
-                     "SELECT password_hash FROM users WHERE username = ?")) {
+                     "SELECT password FROM users WHERE name = ?")) {
 
             stmt.setString(1, username);
             try (ResultSet rs = stmt.executeQuery()) {
                 if (rs.next()) {
-                    return rs.getString("password_hash").equals(hashedPassword);
+                    return rs.getString("password").equals(hashedPassword);
                 }
             }
             return false;
@@ -55,5 +55,17 @@ public class UserAuthenticator {
         } catch (NoSuchAlgorithmException e) {
             throw new RuntimeException("Ошибка хэширования пароля", e);
         }
+    }
+    // Новый метод, который использует метод из DatabaseManager
+    public boolean doesUserExist(String username) throws SQLException {
+        return dbManager.doesUserExist(username);
+    }
+    /**
+     * Проверяет, есть ли в базе данных хотя бы один пользователь.
+     * @return true, если пользователи есть, иначе false.
+     * @throws SQLException в случае ошибки SQL.
+     */
+    public boolean hasAnyUsers() throws SQLException {
+        return dbManager.countUsers() > 0;
     }
 }

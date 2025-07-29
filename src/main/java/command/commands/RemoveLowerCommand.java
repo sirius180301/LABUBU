@@ -2,7 +2,6 @@ package command.commands;
 
 import command.base.Command;
 import command.base.Enviroment;
-import command.base.database.DatabaseManager;
 import command.exeptions.CommandException;
 import command.managers.RouteCollection;
 
@@ -10,7 +9,6 @@ import java.io.InputStream;
 import java.io.PrintStream;
 import java.util.HashMap;
 import java.util.Scanner;
-import java.util.concurrent.locks.Lock;
 
 public class RemoveLowerCommand extends Command {
     private final RouteCollection routeCollection;
@@ -20,47 +18,37 @@ public class RemoveLowerCommand extends Command {
         this.routeCollection = routeCollection;
     }
 
-
-
     @Override
     public void execute(Enviroment env, PrintStream out, InputStream in, String[] args) throws CommandException {
         out.print("Введите значение distance: ");
-        out.flush();
+        Scanner scanner = new Scanner(in);
 
         try {
-            // Считываем значение distance из входного потока
-            Scanner scanner = new Scanner(in);
-            String input = scanner.nextLine().trim();
-            if (input.isEmpty()) {
-                throw new CommandException("Значение distance не может быть пустым.");
-            }
-
-            Float distance = Float.parseFloat(input);
+            Float distance = Float.parseFloat(scanner.nextLine().trim());
+            String currentUser = env.getCurrentUser();
 
             boolean removed = routeCollection.getRoute().removeIf(route ->
-                    route.getDistance() != null && route.getDistance() < distance);
+                    route.getUsername().equals(currentUser) &&
+                            route.getDistance() != null &&
+                            route.getDistance() < distance);
 
             if (removed) {
-                // Пересчитываем ID после удаления
-                routeCollection.reassignIds();
-
-                out.println("Элементы с distance меньше " + distance + " успешно удалены.");
+                routeCollection.findAndSetNextId();
+                out.println("Элементы удалены. Выполните 'save' для сохранения.");
             } else {
-                out.println("Нет элементов с distance меньше " + distance + ".");
+                out.println("Нет элементов, удовлетворяющих условию.");
             }
-
         } catch (NumberFormatException e) {
-            throw new CommandException("Неверный формат distance. Введите число с плавающей точкой.");
+            throw new CommandException("Неверный формат distance.");
         }
     }
 
     @Override
     public String getHelp() {
-        return "удалить из коллекции все элементы, у которых значение distance меньше заданного";
+        return "удалить из коллекции ваши элементы, значение distance которых меньше заданного";
     }
 
-    public static void register(HashMap<String, Command> commandMap, RouteCollection routeCollection, Lock collectionLock, DatabaseManager dbManager) {
-        RemoveLowerCommand removeLowerCommand = new RemoveLowerCommand(routeCollection);
-        commandMap.put(removeLowerCommand.getName(), removeLowerCommand);
+    public static void register(HashMap<String, Command> commandMap, RouteCollection routeCollection) {
+        commandMap.put("remove_lower", new RemoveLowerCommand(routeCollection));
     }
 }

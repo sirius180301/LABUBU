@@ -3,7 +3,6 @@ package command.commands;
 import command.RouteReader;
 import command.base.Command;
 import command.base.Enviroment;
-import command.base.database.DatabaseManager;
 import command.exeptions.CommandException;
 import command.managers.RouteCollection;
 import model.Route;
@@ -13,11 +12,9 @@ import java.io.PrintStream;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.NoSuchElementException;
-import java.util.concurrent.locks.Lock;
 
 public class AddIfMinCommand extends Command {
     private final RouteCollection routeCollection;
-    private String username;
 
     public AddIfMinCommand(RouteCollection routeCollection) {
         super("add_if_min");
@@ -27,10 +24,15 @@ public class AddIfMinCommand extends Command {
     @Override
     public void execute(Enviroment env, PrintStream out, InputStream in, String[] args) throws CommandException {
         try {
-            Route newRoute = RouteReader.readRoute(in, out, routeCollection );
+            Route newRoute = RouteReader.readRoute(in, out, routeCollection);
+
+            // Решение принимаем на основе данных в памяти
             if (routeCollection.getRoute().isEmpty() || newRoute.compareTo(Collections.min(routeCollection.getRoute())) < 0) {
-                routeCollection.add(newRoute);
-                out.println("Элемент успешно добавлен в коллекцию (как минимальный).");
+                // --- ИСПРАВЛЕНИЕ ЗДЕСЬ ---
+                newRoute.setUsername(env.getCurrentUser()); // Устанавливаем владельца
+                routeCollection.add(newRoute);              // И только потом добавляем
+
+                out.println("Элемент успешно добавлен. Не забудьте 'save'.");
             } else {
                 out.println("Новый элемент не является минимальным и не был добавлен.");
             }
@@ -41,11 +43,10 @@ public class AddIfMinCommand extends Command {
 
     @Override
     public String getHelp() {
-        return "добавить новый элемент в коллекцию, если его значение меньше, чем у наименьшего элемента этой коллекции";
+        return "добавить новый элемент, если его значение меньше наименьшего";
     }
 
-    public static void register(HashMap<String, Command> commandMap, RouteCollection routeCollection, Lock collectionLock, DatabaseManager dbManager) {
-        AddIfMinCommand addIfMinCommand = new AddIfMinCommand(routeCollection);
-        commandMap.put(addIfMinCommand.getName(), addIfMinCommand);
+    public static void register(HashMap<String, Command> commandMap, RouteCollection routeCollection) {
+        commandMap.put("add_if_min", new AddIfMinCommand(routeCollection));
     }
 }

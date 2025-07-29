@@ -23,6 +23,6 @@ public class Enviroment {
     }
 
     public HashMap<String, Command> getStringCommandHashMap() {
-        return null;
+        return commands;
     }
 }

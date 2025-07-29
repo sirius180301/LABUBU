@@ -47,7 +47,7 @@ public class RouteReader {
         return new Route(id, name, coordinates, from, to, distance);
     }
 
-    private static Coordinates readCoordinates(InputStream in, PrintStream out) {
+    public static Coordinates readCoordinates(InputStream in, PrintStream out) {
         Scanner scanner = new Scanner(in);
         int x = 0;
         Double y = null;
@@ -86,7 +86,7 @@ public class RouteReader {
     }
 
 
-    private static Location readLocation(InputStream in, PrintStream out, String locationName) {
+    public static Location readLocation(InputStream in, PrintStream out, String locationName) {
         long x = readLongCoordinate(in, out, "X", locationName);
         Double y = readDoubleCoordinate(in, out, "Y", locationName);
         int z = readIntCoordinate(in, out, "Z", locationName);
@@ -94,7 +94,7 @@ public class RouteReader {
         return new Location(x, y, z);
     }
 
-    private static Float calculateDistance(Location from, Location to) {
+    public static Float calculateDistance(Location from, Location to) {
         double dx = to.getX() - from.getX();
         double dy = to.getY() - from.getY();
         double dz = to.getZ() - from.getZ();

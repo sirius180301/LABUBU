@@ -2,61 +2,57 @@ package command.commands;
 
 import command.base.Command;
 import command.base.Enviroment;
-import command.base.database.DatabaseManager;
 import command.exeptions.CommandException;
 import command.managers.RouteCollection;
 
 import java.io.InputStream;
 import java.io.PrintStream;
-import java.sql.SQLException;
 import java.util.HashMap;
-import java.util.concurrent.locks.Lock;
+import java.util.NoSuchElementException;
+import java.util.Scanner;
 
 public class RemoveByIdCommand extends Command {
     private final RouteCollection routeCollection;
-    private final Lock collectionLock;
-    private final DatabaseManager dbManager;
 
-    public RemoveByIdCommand(RouteCollection routeCollection, Lock collectionLock, DatabaseManager dbManager) {
+    public RemoveByIdCommand(RouteCollection routeCollection) {
         super("remove_by_id");
         this.routeCollection = routeCollection;
-        this.collectionLock = collectionLock;
-        this.dbManager = dbManager;
-    }
-
-
-    public void execute(Enviroment env, PrintStream out, String[] args) throws CommandException {
-        if (env.getCurrentUser() == null) {
-            throw new CommandException("Вы не авторизованы. Используйте команду login.");
-        }
-
-        if (args.length != 1) {
-            throw new CommandException("Неверное количество аргументов. Использование: remove_by_id <id>");
-        }
-
-        try {
-            long id = Long.parseLong(args[0]);
-            collectionLock.lock();
-            try {
-                if (dbManager.removeRouteById(id, env.getCurrentUser())) {
-                    routeCollection.removeById(id);
-                    out.println("Элемент с ID " + id + " успешно удален.");
-                } else {
-                    throw new CommandException("Элемент не найден или вам не принадлежит");
-                }
-            } finally {
-                collectionLock.unlock();
-            }
-        } catch (NumberFormatException e) {
-            throw new CommandException("Неверный формат ID. Должно быть число.");
-        } catch (SQLException e) {
-            throw new CommandException("Ошибка базы данных: " + e.getMessage());
-        }
     }
 
     @Override
-    public void execute(Enviroment env, PrintStream stdin, InputStream stdout, String[] commandsArgs) throws CommandException {
+    public void execute(Enviroment env, PrintStream out, InputStream in, String[] args) throws CommandException {
+        if (args.length != 0) {
+            throw new CommandException("Использование: просто введите 'remove_by_id' без аргументов.");
+        }
 
+        Scanner scanner = new Scanner(in);
+        out.print("Введите ID элемента, который хотите удалить: ");
+
+        long id;
+        try {
+            id = Long.parseLong(scanner.nextLine().trim());
+        } catch (NumberFormatException e) {
+            throw new CommandException("Неверный формат ID. Должно быть введено целое число.");
+        } catch (NoSuchElementException e) {
+            throw new CommandException("Ввод ID был прерван.");
+        }
+
+        java.util.Optional<model.Route> routeToRemove = routeCollection.getRoute().stream()
+                .filter(r -> r.getId() == id)
+                .findFirst();
+
+        if (routeToRemove.isEmpty()) {
+            throw new CommandException("Элемент с ID " + id + " не найден в коллекции.");
+        }
+
+        if (!routeToRemove.get().getUsername().equals(env.getCurrentUser())) {
+            throw new CommandException("Ошибка: вы не можете удалить этот элемент, так как он вам не принадлежит.");
+        }
+
+        routeCollection.removeById(id);
+        routeCollection.findAndSetNextId();
+        out.println("Элемент с ID " + id + " успешно удален");
+        out.println("Выполните команду 'save', чтобы сохранить изменения.");
     }
 
     @Override
@@ -64,11 +60,7 @@ public class RemoveByIdCommand extends Command {
         return "удалить элемент из коллекции по его id";
     }
 
-    public static void register(HashMap<String, Command> commandMap,
-                                RouteCollection routeCollection,
-                                Lock collectionLock,
-                                DatabaseManager dbManager) {
-        commandMap.put("remove_by_id",
-                new RemoveByIdCommand(routeCollection, collectionLock, dbManager));
+    public static void register(HashMap<String, Command> commandMap, RouteCollection routeCollection) {
+        commandMap.put("remove_by_id", new RemoveByIdCommand(routeCollection));
     }
 }

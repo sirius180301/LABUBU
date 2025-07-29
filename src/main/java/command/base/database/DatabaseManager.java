@@ -14,6 +14,7 @@ public class DatabaseManager {
     private final String user;
     private final String password;
     private final Lock connectionLock = new ReentrantLock();
+
     static {
         try {
             Class.forName("org.postgresql.Driver");
@@ -41,16 +42,15 @@ public class DatabaseManager {
             // Создание таблицы пользователей
             stmt.execute("CREATE TABLE IF NOT EXISTS users (" +
                     "id SERIAL PRIMARY KEY, " +
-                    "username VARCHAR(50) UNIQUE NOT NULL, " +
-                    "password_hash VARCHAR(100) NOT NULL)");
+                    "name VARCHAR(50) UNIQUE NOT NULL, " +
+                    "password VARCHAR(100) NOT NULL)");
 
             // Создание таблицы маршрутов
             stmt.execute("CREATE TABLE IF NOT EXISTS route (" +
-                    "id BIGINT PRIMARY KEY DEFAULT nextval('route_id_seq'), " +
+                    "id BIGINT PRIMARY KEY, " + // ID теперь назначается в программе, а не в БД
                     "name VARCHAR(100) NOT NULL, " +
                     "x_coord INTEGER NOT NULL, " +
                     "y_coord DOUBLE PRECISION NOT NULL, " +
-                    "creation_date TIMESTAMP NOT NULL, " +
                     "from_x BIGINT NOT NULL, " +
                     "from_y DOUBLE PRECISION NOT NULL, " +
                     "from_z INTEGER NOT NULL, " +
@@ -58,9 +58,10 @@ public class DatabaseManager {
                     "to_y DOUBLE PRECISION NOT NULL, " +
                     "to_z INTEGER NOT NULL, " +
                     "distance FLOAT, " +
-                    "username VARCHAR(50) NOT NULL REFERENCES users(username))");
+                    "creation_date TIMESTAMP NOT NULL,"+
+                    "username VARCHAR(50) NOT NULL REFERENCES users(name))"); // ИСПРАВЛЕНО: ссылка на users(name)
 
-            // Создание sequence для ID маршрутов
+            // Создание sequence для ID маршрутов (используется для генерации новых ID в памяти)
             stmt.execute("CREATE SEQUENCE IF NOT EXISTS route_id_seq START 1 INCREMENT 1");
 
         } catch (SQLException e) {
@@ -74,119 +75,131 @@ public class DatabaseManager {
              Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery("SELECT * FROM route")) {
 
-            LinkedHashSet<Route> routes = new LinkedHashSet<>();
+            LinkedHashSet<model.Route> routes = new LinkedHashSet<>();
             while (rs.next()) {
-                Route route = new Route(
+                // ИСПРАВЛЕНО: Вызываем новый, полный конструктор
+                model.Route route = new model.Route(
                         rs.getLong("id"),
                         rs.getString("name"),
-                        new Coordinates(rs.getInt("x_coord"), rs.getDouble("y_coord")),
-                        new Location(rs.getLong("from_x"), rs.getDouble("from_y"), rs.getInt("from_z")),
-                        new Location(rs.getLong("to_x"), rs.getDouble("to_y"), rs.getInt("to_z")),
+                        new model.Coordinates(rs.getInt("x_coord"), rs.getDouble("y_coord")),
+                        rs.getTimestamp("creation_date").toLocalDateTime(),
+                        new model.Location(rs.getLong("from_x"), rs.getDouble("from_y"), rs.getInt("from_z")),
+                        new model.Location(rs.getLong("to_x"), rs.getDouble("to_y"), rs.getInt("to_z")),
                         rs.getFloat("distance"),
                         rs.getString("username")
                 );
-                route.setCreationDate(rs.getTimestamp("creation_date").toLocalDateTime());
                 routes.add(route);
             }
+
             routeCollection.setRoutes(routes);
-            routeCollection.reassignIds();
+            routeCollection.findAndSetNextId();
+
         } finally {
             connectionLock.unlock();
         }
     }
 
-    public long addRoute(Route route, String username) throws SQLException {
+    /**
+     * Загружает из базы данных маршруты, принадлежащие конкретному пользователю.
+     * Необходим для команды logout для проверки несохраненных изменений.
+     * @param username имя пользователя.
+     * @return Множество (Set) маршрутов этого пользователя.
+     * @throws SQLException в случае ошибки SQL.
+     */
+    public Set<model.Route> getUserRoutes(String username) throws SQLException {
+        String sql = "SELECT * FROM route WHERE username = ?";
+        Set<model.Route> userRoutes = new HashSet<>();
+
         connectionLock.lock();
         try (Connection conn = getConnection();
-             PreparedStatement stmt = conn.prepareStatement(
-                     "INSERT INTO route (name, x_coord, y_coord, creation_date, from_x, from_y, from_z, to_x, to_y, to_z, distance, username) " +
-                             "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id")) {
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
 
-
-            stmt.setString(1, route.getName());
-            stmt.setInt(2, route.getCoordinates().getX());
-            stmt.setDouble(3, route.getCoordinates().getY());
-            stmt.setTimestamp(4, Timestamp.valueOf(route.getCreationDate()));
-            stmt.setLong(5, route.getFrom().getX());
-            stmt.setDouble(6, route.getFrom().getY());
-            stmt.setInt(7, route.getFrom().getZ());
-            stmt.setLong(8, route.getTo().getX());
-            stmt.setDouble(9, route.getTo().getY());
-            stmt.setInt(10, route.getTo().getZ());
-            stmt.setFloat(11, route.getDistance());
-            stmt.setString(12, username);
-
+            stmt.setString(1, username);
             try (ResultSet rs = stmt.executeQuery()) {
-                if (rs.next()) {
-                    return rs.getLong(1);
+                while (rs.next()) {
+                    model.Route route = new model.Route(
+                            rs.getLong("id"),
+                            rs.getString("name"),
+                            new model.Coordinates(rs.getInt("x_coord"), rs.getDouble("y_coord")),
+                            rs.getTimestamp("creation_date").toLocalDateTime(),
+                            new model.Location(rs.getLong("from_x"), rs.getDouble("from_y"), rs.getInt("from_z")),
+                            new model.Location(rs.getLong("to_x"), rs.getDouble("to_y"), rs.getInt("to_z")),
+                            rs.getFloat("distance"),
+                            rs.getString("username")
+                    );
+                    userRoutes.add(route);
                 }
             }
-            throw new SQLException("Не удалось получить ID после вставки");
         } finally {
             connectionLock.unlock();
         }
+        return userRoutes;
     }
 
-    public boolean removeRouteById(long id, String username) throws SQLException {
+    /**
+     * Полностью синхронизирует маршруты для указанного пользователя.
+     * Сначала удаляет все его старые маршруты, затем вставляет все маршруты из переданной коллекции.
+     * Операция выполняется в одной транзакции для обеспечения целостности данных.
+     */
+    public void syncUserRoutes(String username, java.util.Collection<model.Route> routes) throws SQLException {
+        String deleteSql = "DELETE FROM route WHERE username = ?";
+        String insertSql = "INSERT INTO route (id, name, creation_date, x_coord, y_coord, from_x, from_y, from_z, to_x, to_y, to_z, distance, username) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+
+        Connection conn = null;
         connectionLock.lock();
-        try (Connection conn = getConnection();
-             PreparedStatement stmt = conn.prepareStatement(
-                     "DELETE FROM route WHERE id = ? AND username = ?")) {
+        try {
+            conn = getConnection();
+            conn.setAutoCommit(false); // Начало транзакции
 
-            stmt.setLong(1, id);
-            stmt.setString(2, username);
-            return stmt.executeUpdate() > 0;
-        } finally {
-            connectionLock.unlock();
-        }
-    }
-
-    public boolean updateRoute(Route route) throws SQLException {
-        connectionLock.lock();
-        try (Connection conn = getConnection();
-             PreparedStatement stmt = conn.prepareStatement(
-                     "UPDATE route SET name = ?, x_coord = ?, y_coord = ?, from_x = ?, from_y = ?, from_z = ?, " +
-                             "to_x = ?, to_y = ?, to_z = ?, distance = ? WHERE id = ? AND username = ?")) {
-
-            stmt.setString(1, route.getName());
-            stmt.setInt(2, route.getCoordinates().getX());
-            stmt.setDouble(3, route.getCoordinates().getY());
-            stmt.setLong(4, route.getFrom().getX());
-            stmt.setDouble(5, route.getFrom().getY());
-            stmt.setInt(6, route.getFrom().getZ());
-            stmt.setLong(7, route.getTo().getX());
-            stmt.setDouble(8, route.getTo().getY());
-            stmt.setInt(9, route.getTo().getZ());
-            stmt.setFloat(10, route.getDistance());
-            stmt.setLong(11, route.getId());
-            stmt.setString(12, route.getUsername());
-
-            return stmt.executeUpdate() > 0;
-        } finally {
-            connectionLock.unlock();
-        }
-    }
-
-    public void saveAllChanges() throws SQLException {
-        // В нашей реализации изменения сохраняются сразу, поэтому этот метод может быть пустым
-        // Или можно добавить логирование успешного сохранения
-    }
-
-    public List<Float> getSortedDistances() throws SQLException {
-        connectionLock.lock();
-        try (Connection conn = getConnection();
-             Statement stmt = conn.createStatement();
-             ResultSet rs = stmt.executeQuery("SELECT distance FROM route WHERE distance IS NOT NULL ORDER BY distance")) {
-
-            List<Float> distances = new ArrayList<>();
-            while (rs.next()) {
-                distances.add(rs.getFloat("distance"));
+            // Шаг 1: Удаляем все старые маршруты пользователя
+            try (PreparedStatement deleteStmt = conn.prepareStatement(deleteSql)) {
+                deleteStmt.setString(1, username);
+                deleteStmt.executeUpdate();
             }
-            return distances;
+
+            // Шаг 2: Вставляем все маршруты из коллекции в памяти
+            try (PreparedStatement insertStmt = conn.prepareStatement(insertSql)) {
+                for (model.Route route : routes) {
+                    if (!username.equals(route.getUsername())) continue; // Вставляем только маршруты текущего пользователя
+
+                    insertStmt.setLong(1, route.getId());
+                    insertStmt.setString(2, route.getName());
+                    insertStmt.setTimestamp(3, java.sql.Timestamp.valueOf(route.getCreationDate()));
+                    insertStmt.setInt(4, route.getCoordinates().getX());
+                    insertStmt.setDouble(5, route.getCoordinates().getY());
+                    insertStmt.setLong(6, route.getFrom().getX());
+                    insertStmt.setDouble(7, route.getFrom().getY());
+                    insertStmt.setInt(8, route.getFrom().getZ());
+                    insertStmt.setLong(9, route.getTo().getX());
+                    insertStmt.setDouble(10, route.getTo().getY());
+                    insertStmt.setInt(11, route.getTo().getZ());
+                    insertStmt.setFloat(12, route.getDistance());
+                    insertStmt.setString(13, route.getUsername());
+
+                    insertStmt.addBatch();
+                }
+                insertStmt.executeBatch();
+            }
+
+            conn.commit(); // Подтверждение транзакции
+
+        } catch (SQLException e) {
+            if (conn != null) {
+                conn.rollback(); // Откат транзакции в случае ошибки
+            }
+            throw e;
         } finally {
+            if (conn != null) {
+                conn.setAutoCommit(true);
+                conn.close();
+            }
             connectionLock.unlock();
         }
     }
+
+    // --- Вспомогательные методы (могут быть неактуальны при стратегии полной синхронизации, но не мешают) ---
+
     public boolean testConnection() {
         try (Connection conn = getConnection();
              Statement stmt = conn.createStatement()) {
@@ -195,5 +208,37 @@ public class DatabaseManager {
             System.err.println("Ошибка подключения: " + e.getMessage());
             return false;
         }
+    }
+
+    public boolean doesUserExist(String username) throws SQLException {
+        String sql = "SELECT COUNT(*) FROM users WHERE name = ?";
+        connectionLock.lock();
+        try (Connection conn = getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, username);
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt(1) > 0;
+                }
+            }
+        } finally {
+            connectionLock.unlock();
+        }
+        return false;
+    }
+
+    public int countUsers() throws SQLException {
+        String sql = "SELECT COUNT(*) FROM users";
+        connectionLock.lock();
+        try (Connection conn = getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql);
+             ResultSet rs = stmt.executeQuery()) {
+            if (rs.next()) {
+                return rs.getInt(1);
+            }
+        } finally {
+            connectionLock.unlock();
+        }
+        return 0;
     }
 }

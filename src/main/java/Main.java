@@ -11,11 +11,11 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
 public class Main {
-    private static String connectionString = "jdbc:postgresql://pg:2222/studs?user=s465878&password=0pKaKsNIQxLhWHSt";
+    private static String connectionString = "jdbc:postgresql://pg:5432/studs?user=s465878&password=0pKaKsNIQxLhWHSt";
     private static String username = "s465878";
     private static String password = "0pKaKsNIQxLhWHSt";
     private static String db = "studs";
-    private static int port = 2222;
+    private static int port = 5432;
     private static String host = "pg";
 
     private static DatabaseManager dbManager;
@@ -45,7 +45,7 @@ public class Main {
                     password = arg;
                 }
             }
-            connectionString = "jdbc:postgresql://" + host + ":" + port + "/" + db;
+            connectionString = "jdbc:postgresql://" + host + ":" + port + "/" + db + "?sslmode=disable";
         } catch (Exception e) {
             System.err.println("Ошибка запуска приложения: " + e.getMessage());
         }
@@ -53,9 +53,9 @@ public class Main {
         try (Scanner scanner = new Scanner(System.in)) {
             // Шаг 1: Получение параметров подключения к БД
             System.out.println("=== Настройка подключения к PostgreSQL ===");
-            String dbUrl = getDbUrl(scanner);
-            String dbUser = getInput(scanner, "Имя пользователя PostgreSQL: ", false);
-            String dbPassword = getInput(scanner, "Пароль PostgreSQL: ", true);
+            String dbUrl = connectionString;
+            String dbUser = username;
+            String dbPassword = password;
 
             // Шаг 2: Инициализация подключения
             initializeDatabase(scanner, dbUrl, dbUser, dbPassword);
@@ -65,14 +65,14 @@ public class Main {
 
             // Шаг 4: Регистрация команд
             HashMap<String, Command> commands = new HashMap<>();
-            registerCommands(commands, routeCollection, collectionLock, dbManager, userAuthenticator);
+            registerCommands(commands, routeCollection, dbManager, userAuthenticator);
 
             // Шаг 5: Создание окружения
             env = new Enviroment(commands);
 
             // Шаг 6: Запуск основного цикла
             System.out.println("\n=== Route Manager ===");
-            System.out.println("Доступные команды: help, register, login, ...");
+            System.out.println("Для регистрации введите команду register. Если у вас уже есть аккаунт, введите команду login");
             runCommandLoop(scanner);
 
         } catch (Exception e) {
@@ -130,27 +130,36 @@ public class Main {
 
     public static void registerCommands(HashMap<String, Command> commands,
                                         RouteCollection routeCollection,
-                                        Lock collectionLock,
                                         DatabaseManager dbManager,
                                         UserAuthenticator userAuthenticator) {
+
+        // --- НЕ ТРЕБУЮТ ЗАВИСИМОСТЕЙ ---
         HelpCommand.register(commands);
+        ExitCommand.register(commands);
+        ExecuteScriptCommand.register(commands);
+
+        // --- ТРЕБУЮТ ТОЛЬКО КОЛЛЕКЦИЮ В ПАМЯТИ ---
         InfoCommand.register(commands, routeCollection);
         ShowCommand.register(commands, routeCollection);
-        AddCommand.register(commands, routeCollection, collectionLock, dbManager);
-        UpdateCommand.register(commands, routeCollection, dbManager);
-        RemoveByIdCommand.register(commands, routeCollection, collectionLock, dbManager);
+        AddCommand.register(commands, routeCollection);
+        UpdateCommand.register(commands, routeCollection);
+        RemoveByIdCommand.register(commands, routeCollection);
         ClearCommand.register(commands, routeCollection);
-        ExitCommand.register(commands);
-        AddIfMaxCommand.register(commands, routeCollection, collectionLock, dbManager);
-        AddIfMinCommand.register(commands, routeCollection, collectionLock, dbManager);
-        RemoveLowerCommand.register(commands, routeCollection, collectionLock, dbManager);
+        AddIfMaxCommand.register(commands, routeCollection);
+        AddIfMinCommand.register(commands, routeCollection);
+        RemoveLowerCommand.register(commands, routeCollection);
         MinByCreationDateCommand.register(commands, routeCollection);
         CountLessThanDistanceCommand.register(commands, routeCollection);
-        PrintFieldAscendingDistanceCommand.register(commands, routeCollection, dbManager);
+        PrintFieldAscendingDistanceCommand.register(commands, routeCollection);
+        LogOutCommand.register(commands,routeCollection,dbManager);
+
+        // --- ТРЕБУЮТ ДОСТУП К АУТЕНТИФИКАЦИИ (и, следовательно, к БД) ---
         RegisterCommand.register(commands, userAuthenticator);
         LoginCommand.register(commands, userAuthenticator);
-        SaveCommand.register(commands, dbManager);
-        ExecuteScriptCommand.register(commands);
+
+        // --- ТРЕБУЮТ ПРЯМОЙ ДОСТУП К БД ДЛЯ ЗАПИСИ ---
+        SaveCommand.register(commands, routeCollection, dbManager);
+        LogOutCommand.register(commands, routeCollection, dbManager);
     }
 
     private static void runCommandLoop(Scanner scanner) {
