@@ -1,7 +1,7 @@
 <component name="ArtifactManager">
-  <artifact type="jar" name="HUI">
-    <output-path>$PROJECT_DIR$/out/artifacts/HUI</output-path>
-    <root id="archive" name="HUI.jar">
+  <artifact type="jar" name="4">
+    <output-path>$PROJECT_DIR$/out/artifacts/4</output-path>
+    <root id="archive" name="4.jar">
       <element id="directory" name="META-INF">
         <element id="file-copy" path="$PROJECT_DIR$/META-INF/MANIFEST.MF" />
       </element>
