@@ -78,6 +78,7 @@ public class Route implements Comparable<Route> {
         this.to = Objects.requireNonNull(to, "Местоположение прибытия не может быть null.");
         this.distance = distance;
         this.username = Objects.requireNonNull(username, "Имя пользователя не может быть null.");
+
     }
 
     //public Route(long id, String name, Coordinates coordinates, Location from, Location to, Float distance, String username) {
@@ -210,6 +211,7 @@ public class Route implements Comparable<Route> {
         this.distance = distance;
     }
 
+
     @Override
     public String toString() {
         return "Route{" +
@@ -220,6 +222,7 @@ public class Route implements Comparable<Route> {
                 ", from=" + from +
                 ", to=" + to +
                 ", distance=" + distance +
+                ", owner='" + username +
                 '}';
     }
 
