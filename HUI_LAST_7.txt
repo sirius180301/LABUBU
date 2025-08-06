@@ -1,0 +1,947 @@
+package command.base.database;
+
+import command.managers.RouteCollection;
+import model.Coordinates;
+import model.Location;
+import model.Route;
+import java.sql.*;
+import java.util.*;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
+
+public class DatabaseManager {
+    private final String url;
+    private final String user;
+    private final String password;
+    private final Lock connectionLock = new ReentrantLock();
+
+    static {
+        try {
+            Class.forName("org.postgresql.Driver");
+        } catch (ClassNotFoundException e) {
+            System.err.println("PostgreSQL JDBC Driver not found. Include it in your library path.");
+            e.printStackTrace();
+        }
+    }
+
+    public DatabaseManager(String url, String user, String password) {
+        this.url = url;
+        this.user = user;
+        this.password = password;
+        initializeDatabase();
+    }
+
+    public Connection getConnection() throws SQLException {
+        return DriverManager.getConnection(url, user, password);
+    }
+
+    private void initializeDatabase() {
+        try (Connection conn = getConnection();
+             Statement stmt = conn.createStatement()) {
+
+            // Создание таблицы пользователей
+            stmt.execute("CREATE TABLE IF NOT EXISTS users (" +
+                    "id SERIAL PRIMARY KEY, " +
+                    "name VARCHAR(50) UNIQUE NOT NULL, " +
+                    "password VARCHAR(100) NOT NULL)");
+
+            // Создание таблицы маршрутов
+            stmt.execute("CREATE TABLE IF NOT EXISTS route (" +
+                    "id BIGINT PRIMARY KEY, " + // ID теперь назначается в программе, а не в БД
+                    "name VARCHAR(100) NOT NULL, " +
+                    "x_coord INTEGER NOT NULL, " +
+                    "y_coord DOUBLE PRECISION NOT NULL, " +
+                    "from_x BIGINT NOT NULL, " +
+                    "from_y DOUBLE PRECISION NOT NULL, " +
+                    "from_z INTEGER NOT NULL, " +
+                    "to_x BIGINT NOT NULL, " +
+                    "to_y DOUBLE PRECISION NOT NULL, " +
+                    "to_z INTEGER NOT NULL, " +
+                    "distance FLOAT, " +
+                    "creation_date TIMESTAMP NOT NULL,"+
+                    "username VARCHAR(50) NOT NULL REFERENCES users(name))"); // ИСПРАВЛЕНО: ссылка на users(name)
+
+            // Создание sequence для ID маршрутов (используется для генерации новых ID в памяти)
+            stmt.execute("CREATE SEQUENCE IF NOT EXISTS route_id_seq START 1 INCREMENT 1");
+
+        } catch (SQLException e) {
+            System.err.println("Ошибка при инициализации базы данных: " + e.getMessage());
+        }
+    }
+
+    public void loadCollection(RouteCollection routeCollection) throws SQLException {
+        connectionLock.lock();
+        try (Connection conn = getConnection();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery("SELECT * FROM route")) {
+
+            LinkedHashSet<model.Route> routes = new LinkedHashSet<>();
+            while (rs.next()) {
+                // ИСПРАВЛЕНО: Вызываем новый, полный конструктор
+                model.Route route = new model.Route(
+                        rs.getLong("id"),
+                        rs.getString("name"),
+                        new model.Coordinates(rs.getInt("x_coord"), rs.getDouble("y_coord")),
+                        rs.getTimestamp("creation_date").toLocalDateTime(),
+                        new model.Location(rs.getLong("from_x"), rs.getDouble("from_y"), rs.getInt("from_z")),
+                        new model.Location(rs.getLong("to_x"), rs.getDouble("to_y"), rs.getInt("to_z")),
+                        rs.getFloat("distance"),
+                        rs.getString("username")
+                );
+                routes.add(route);
+            }
+
+            routeCollection.setRoutes(routes);
+            routeCollection.findAndSetNextId();
+
+        } finally {
+            connectionLock.unlock();
+        }
+    }
+
+    /**
+     * Загружает из базы данных маршруты, принадлежащие конкретному пользователю.
+     * Необходим для команды logout для проверки несохраненных изменений.
+     * @param username имя пользователя.
+     * @return Множество (Set) маршрутов этого пользователя.
+     * @throws SQLException в случае ошибки SQL.
+     */
+    public Set<model.Route> getUserRoutes(String username) throws SQLException {
+        String sql = "SELECT * FROM route WHERE username = ?";
+        Set<model.Route> userRoutes = new HashSet<>();
+
+        connectionLock.lock();
+        try (Connection conn = getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setString(1, username);
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    model.Route route = new model.Route(
+                            rs.getLong("id"),
+                            rs.getString("name"),
+                            new model.Coordinates(rs.getInt("x_coord"), rs.getDouble("y_coord")),
+                            rs.getTimestamp("creation_date").toLocalDateTime(),
+                            new model.Location(rs.getLong("from_x"), rs.getDouble("from_y"), rs.getInt("from_z")),
+                            new model.Location(rs.getLong("to_x"), rs.getDouble("to_y"), rs.getInt("to_z")),
+                            rs.getFloat("distance"),
+                            rs.getString("username")
+                    );
+                    userRoutes.add(route);
+                }
+            }
+        } finally {
+            connectionLock.unlock();
+        }
+        return userRoutes;
+    }
+
+    /**
+     * Полностью синхронизирует маршруты для указанного пользователя.
+     * Сначала удаляет все его старые маршруты, затем вставляет все маршруты из переданной коллекции.
+     * Операция выполняется в одной транзакции для обеспечения целостности данных.
+     */
+    public void syncUserRoutes(String username, java.util.Collection<model.Route> routes) throws SQLException {
+        String deleteSql = "DELETE FROM route WHERE username = ?";
+        String insertSql = "INSERT INTO route (id, name, creation_date, x_coord, y_coord, from_x, from_y, from_z, to_x, to_y, to_z, distance, username) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+
+        Connection conn = null;
+        connectionLock.lock();
+        try {
+            conn = getConnection();
+            conn.setAutoCommit(false); // Начало транзакции
+
+            // Шаг 1: Удаляем все старые маршруты пользователя
+            try (PreparedStatement deleteStmt = conn.prepareStatement(deleteSql)) {
+                deleteStmt.setString(1, username);
+                deleteStmt.executeUpdate();
+            }
+
+            // Шаг 2: Вставляем все маршруты из коллекции в памяти
+            try (PreparedStatement insertStmt = conn.prepareStatement(insertSql)) {
+                for (model.Route route : routes) {
+                    if (!username.equals(route.getUsername())) continue; // Вставляем только маршруты текущего пользователя
+
+                    insertStmt.setLong(1, route.getId());
+                    insertStmt.setString(2, route.getName());
+                    insertStmt.setTimestamp(3, java.sql.Timestamp.valueOf(route.getCreationDate()));
+                    insertStmt.setInt(4, route.getCoordinates().getX());
+                    insertStmt.setDouble(5, route.getCoordinates().getY());
+                    insertStmt.setLong(6, route.getFrom().getX());
+                    insertStmt.setDouble(7, route.getFrom().getY());
+                    insertStmt.setInt(8, route.getFrom().getZ());
+                    insertStmt.setLong(9, route.getTo().getX());
+                    insertStmt.setDouble(10, route.getTo().getY());
+                    insertStmt.setInt(11, route.getTo().getZ());
+                    insertStmt.setFloat(12, route.getDistance());
+                    insertStmt.setString(13, route.getUsername());
+
+                    insertStmt.addBatch();
+                }
+                insertStmt.executeBatch();
+            }
+
+            conn.commit(); // Подтверждение транзакции
+
+        } catch (SQLException e) {
+            if (conn != null) {
+                conn.rollback(); // Откат транзакции в случае ошибки
+            }
+            throw e;
+        } finally {
+            if (conn != null) {
+                conn.setAutoCommit(true);
+                conn.close();
+            }
+            connectionLock.unlock();
+        }
+    }
+
+    // --- Вспомогательные методы (могут быть неактуальны при стратегии полной синхронизации, но не мешают) ---
+
+    public boolean testConnection() {
+        try (Connection conn = getConnection();
+             Statement stmt = conn.createStatement()) {
+            return stmt.execute("SELECT 1");
+        } catch (SQLException e) {
+            System.err.println("Ошибка подключения: " + e.getMessage());
+            return false;
+        }
+    }
+
+    public boolean doesUserExist(String username) throws SQLException {
+        String sql = "SELECT COUNT(*) FROM users WHERE name = ?";
+        connectionLock.lock();
+        try (Connection conn = getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, username);
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt(1) > 0;
+                }
+            }
+        } finally {
+            connectionLock.unlock();
+        }
+        return false;
+    }
+
+    public int countUsers() throws SQLException {
+        String sql = "SELECT COUNT(*) FROM users";
+        connectionLock.lock();
+        try (Connection conn = getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql);
+             ResultSet rs = stmt.executeQuery()) {
+            if (rs.next()) {
+                return rs.getInt(1);
+            }
+        } finally {
+            connectionLock.unlock();
+        }
+        return 0;
+    }
+}package command.base.database;
+
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.sql.*;
+import java.util.Base64;
+
+public class UserAuthenticator {
+    private final DatabaseManager dbManager;
+
+    public UserAuthenticator(DatabaseManager dbManager) {
+        this.dbManager = dbManager;
+    }
+
+    public boolean registerUser(String username, String password) throws SQLException {
+        String hashedPassword = hashPassword(password);
+
+        try (Connection conn = dbManager.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(
+                     "INSERT INTO users (name, password) VALUES (?, ?)")) {
+
+            stmt.setString(1, username);
+            stmt.setString(2, hashedPassword);
+            return stmt.executeUpdate() > 0;
+        } catch (SQLException e) {
+            if (e.getSQLState().equals("23505")) { // Ошибка уникальности
+                throw new SQLException("Пользователь с таким именем уже существует");
+            }
+            throw e;
+        }
+    }
+
+    public boolean authenticateUser(String username, String password) throws SQLException {
+        String hashedPassword = hashPassword(password);
+
+        try (Connection conn = dbManager.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(
+                     "SELECT password FROM users WHERE name = ?")) {
+
+            stmt.setString(1, username);
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getString("password").equals(hashedPassword);
+                }
+            }
+            return false;
+        }
+    }
+
+    private String hashPassword(String password) {
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-1");
+            byte[] hash = md.digest(password.getBytes());
+            return Base64.getEncoder().encodeToString(hash);
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException("Ошибка хэширования пароля", e);
+        }
+    }
+    // Новый метод, который использует метод из DatabaseManager
+    public boolean doesUserExist(String username) throws SQLException {
+        return dbManager.doesUserExist(username);
+    }
+    /**
+     * Проверяет, есть ли в базе данных хотя бы один пользователь.
+     * @return true, если пользователи есть, иначе false.
+     * @throws SQLException в случае ошибки SQL.
+     */
+    public boolean hasAnyUsers() throws SQLException {
+        return dbManager.countUsers() > 0;
+    }
+}
+package command.base;
+
+import command.exeptions.CommandException;
+
+import java.io.InputStream;
+import java.io.PrintStream;
+
+/**
+ * Абстрактный класс Command представляет собой базовый класс для всех команд.
+ * Он содержит имя команды и определяет методы, которые должны быть реализованы в подклассах.
+ */
+public abstract class Command {
+    private final String name;
+
+    /**
+     * Конструктор для создания команды с заданным именем.
+     *
+     * @param name имя команды
+     */
+    protected Command(String name) {
+        this.name = name;
+    }
+
+    /**
+     * Получает имя команды.
+     *
+     * @return имя команды
+     */
+    public String getName() {
+        return name;
+    }
+
+    /**
+     * Выполняет команду с заданной средой и аргументами.
+     *
+     * @param env         среда выполнения команды
+     * @param stdin       поток ввода
+     * @param stdout      поток вывода
+     * @param commandsArgs аргументы команды
+     * @throws CommandException если произошла ошибка при выполнении команды
+     */
+    public abstract void execute(Enviroment env, PrintStream stdin, InputStream stdout, String[] commandsArgs) throws CommandException;
+
+    /**
+     * Получает справочную информацию о команде.
+     * @return строка с помощью команды
+     */
+    public abstract String getHelp();
+}
+package model;
+
+
+import java.util.Objects;
+
+/**
+ * Класс Location представляет географическое местоположение
+ * с координатами x (долгота), y (широта) и z (высота).
+ * Координата y не может быть null.
+ */
+
+public class Location {
+
+    /**
+     * Координата x (долгота)
+     */
+    private long x;
+
+    /**
+     * Координата y (широта, не может быть null)
+     */
+    private Double y;
+
+    /**
+     * Координата z (высота)
+     */
+    private int z;
+
+    /**
+     * Создает новый объект Location с указанными координатами
+     *
+     * @param x координата  (долгота)
+     * @param y координата y (широта, не может быть null)
+     * @param z координата z (высота)
+     * @throws NullPointerException если координата y равна null
+     */
+    public Location() {
+    }
+
+    public Location(long x, Double y, int z) {
+        setX(x);
+        setY(y);
+        setZ(z);
+    }
+
+    /**
+     * Возвращает координату x (долготу)
+     *
+     * @return координата x
+     */
+
+    public long getX() {
+        return x;
+    }
+
+    /**
+     * Устанавливает координату x (долготу)
+     *
+     * @param x новая координата x
+     */
+    public void setX(long x) {
+        this.x = x;
+    }
+
+    /**
+     * Возвращает координату y (широту)
+     *
+     * @return координата y
+     */
+
+    public Double getY() {
+        return y;
+    }
+
+    /**
+     * Устанавливает координату y (широту)
+     *
+     * @param y новая координата y
+     * @throws NullPointerException если координата y равна null
+     */
+    public void setY(Double y) {
+        this.y = Objects.requireNonNull(y, "Координата y не может быть null.");
+    }
+
+    /**
+     * Возвращает координату z (высоту)
+     *
+     * @return координата z
+     */
+
+    public int getZ() {
+        return z;
+    }
+
+    /**
+     * Устанавливает координату z (высоту)
+     *
+     * @param z новая координата z
+     */
+    public void setZ(int z) {
+        this.z = z;
+    }
+
+    /**
+     * Возвращает строковое представление объекта Location
+     *
+     * @return строковое представление в формате "Location{x=..., y=..., z=...}"
+     */
+    @Override
+    public String toString() {
+        return "Location{" +
+                "x=" + x +
+                ", y=" + y +
+                ", z=" + z +
+                '}';
+    }
+}
+package model;
+
+import java.time.LocalDateTime;
+import java.util.Objects;
+
+
+
+import command.managers.LocalDateTimeAdapter;
+
+/**
+ * Класс Route представляет маршрут с уникальным идентификатором, названием,
+ * координатами, датой создания, начальной и конечной точками, а также расстоянием.
+ * Реализует интерфейс Comparable для сравнения маршрутов по расстоянию.
+ */
+
+public class Route implements Comparable<Route> {
+
+    /**
+     * Уникальный идентификатор маршрута (должен быть больше 0)
+     */
+    private long id;
+
+    /** Название маршрута (не может быть null или пустым) */
+    private String name;
+
+    /** Координаты маршрута (не могут быть null) */
+    private Coordinates coordinates;
+
+    /** Дата создания маршрута (генерируется автоматически) */
+    private LocalDateTime creationDate;
+
+    /** Начальная точка маршрута (не может быть null) */
+    private Location from;
+
+    /** Конечная точка маршрута (не может быть null) */
+    private Location to;
+
+    /** Расстояние маршрута (может быть null) */
+    private Float distance;
+    private String username;
+
+    /**
+     * Приватный конструктор без параметров (требуется для JAXB)
+     */
+    private Route() {
+    }
+
+    /**
+     * Основной конструктор для создания маршрута
+     * @param id уникальный идентификатор
+     * @param name название маршрута
+     * @param coordinates координаты
+     * @param from начальная точка
+     * @param to конечная точка
+     * @param distance расстояние
+     * @throws NullPointerException если name, coordinates, from или to равны null
+     */
+    public Route(long id, String name, Coordinates coordinates, Location from, Location to, Float distance) {
+        this.id = id;
+        this.name = Objects.requireNonNull(name, "Имя не может быть null.");
+        this.coordinates = Objects.requireNonNull(coordinates, "Координаты не могут быть null.");
+        this.creationDate = LocalDateTime.now();
+        this.from = Objects.requireNonNull(from, "Местоположение отправления не может быть null.");
+        this.to = Objects.requireNonNull(to, "Местоположение прибытия не может быть null.");
+        this.distance = distance;
+        this.username = username;
+    }
+
+
+
+    public Route(long id, String name, Coordinates coordinates, LocalDateTime creationDate, Location from, Location to, Float distance, String username) {
+        this.id = id;
+        this.name = Objects.requireNonNull(name, "Имя не может быть null.");
+        this.coordinates = Objects.requireNonNull(coordinates, "Координаты не могут быть null.");
+        this.creationDate = Objects.requireNonNull(creationDate, "Дата создания не может быть null.");
+        this.from = Objects.requireNonNull(from, "Местоположение отправления не может быть null.");
+        this.to = Objects.requireNonNull(to, "Местоположение прибытия не может быть null.");
+        this.distance = distance;
+        this.username = Objects.requireNonNull(username, "Имя пользователя не может быть null.");
+
+    }
+
+    //public Route(long id, String name, Coordinates coordinates, Location from, Location to, Float distance, String username) {
+   // }
+
+    /**
+     * Внутренний класс для построения маршрута (не используется в текущей реализации)
+     */
+
+
+    /**
+     * Возвращает идентификатор маршрута
+     * @return идентификатор маршрута
+     */
+
+    public long getId() {
+        return id;
+    }
+
+    /**
+     * Устанавливает идентификатор маршрута
+     * @param id новый идентификатор
+     */
+    public void setId(long id) {
+        this.id = id;
+    }
+
+    /**
+     * Возвращает название маршрута
+     * @return название маршрута
+     */
+
+    public String getName() {
+        return name;
+    }
+
+    /**
+     * Устанавливает название маршрута
+     * @param name новое название
+     * @throws NullPointerException если name равен null
+     */
+    public void setName(String name) {
+        this.name = Objects.requireNonNull(name, "Имя не может быть null.");
+    }
+
+    /**
+     * Возвращает координаты маршрута
+     * @return объект Coordinates
+     */
+
+    public Coordinates getCoordinates() {
+        return coordinates;
+    }
+
+    /**
+     * Устанавливает координаты маршрута
+     * @param coordinates новые координаты
+     * @throws NullPointerException если coordinates равен null
+     */
+    public void setCoordinates(Coordinates coordinates) {
+        this.coordinates = Objects.requireNonNull(coordinates, "Координаты не могут быть null.");
+    }
+
+    /**
+     * Возвращает дату создания маршрута
+     * @return дата создания
+     */
+
+    public LocalDateTime getCreationDate() {
+        return creationDate;
+    }
+
+    /**
+     * Устанавливает дату создания маршрута
+     * @param creationDate новая дата создания
+     */
+    public void setCreationDate(LocalDateTime creationDate) {
+        this.creationDate = creationDate;
+    }
+
+    /**
+     * Возвращает начальную точку маршрута
+     * @return объект Location
+     */
+
+    public Location getFrom() {
+        return from;
+    }
+
+    /**
+     * Устанавливает начальную точку маршрута
+     * @param from новая начальная точка
+     * @throws NullPointerException если from равен null
+     */
+    public void setFrom(Location from) {
+        this.from = Objects.requireNonNull(from, "Местоположение отправления не может быть null.");
+    }
+
+    /**
+     * Возвращает конечную точку маршрута
+     * @return объект Location
+     */
+
+    public Location getTo() {
+        return to;
+    }
+
+    /**
+     * Устанавливает конечную точку маршрута
+     * @param to новая конечная точка
+     * @throws NullPointerException если to равен null
+     */
+    public void setTo(Location to) {
+        this.to = Objects.requireNonNull(to, "Местоположение прибытия не может быть null.");
+    }
+
+    /**
+     * Возвращает расстояние маршрута
+     * @return расстояние (может быть null)
+     */
+    public Float getDistance() {
+        return distance;
+    }
+
+    /**
+     * Устанавливает расстояние маршрута
+     * @param distance новое расстояние
+     */
+    public void setDistance(Float distance) {
+        this.distance = distance;
+    }
+
+
+    @Override
+    public String toString() {
+        return "Route{" +
+                "id=" + id +
+                ", name='" + name + '\'' +
+                ", coordinates=" + coordinates +
+                ", creationDate=" + creationDate +
+                ", from=" + from +
+                ", to=" + to +
+                ", distance=" + distance +
+                ", owner='" + username +
+                '}';
+    }
+
+    @Override
+    public int compareTo(Route o) {
+        if (this.distance == null && o.getDistance() == null) {
+            return 0;
+        } else if (this.distance == null) {
+            return -1;
+        } else if (o.getDistance() == null) {
+            return 1;
+        }
+        return this.distance.compareTo(o.getDistance());
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        Route route = (Route) o;
+        return id == route.id;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(id);
+    }
+
+    public String getUsername() {
+        return username;
+    }
+
+    public void setUsername(String username) {
+
+        if (username == null || username.trim().isEmpty()) {
+            throw new IllegalArgumentException("Имя пользователя (владельца) не может быть пустым.");
+        }
+        this.username = username;
+    }
+
+}
+import command.base.Command;
+import command.base.Enviroment;
+import command.base.database.DatabaseManager;
+import command.base.database.UserAuthenticator;
+import command.commands.*;
+import command.managers.RouteCollection;
+
+import java.util.HashMap;
+import java.util.Scanner;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
+
+public class Main {
+    private static String connectionString = "jdbc:postgresql://pg:5432/studs?user=s465878&password=0pKaKsNIQxLhWHSt";
+    private static String username = "s465878";
+    private static String password = "0pKaKsNIQxLhWHSt";
+    private static String db = "studs";
+    private static int port = 5432;
+    private static String host = "pg";
+
+    private static DatabaseManager dbManager;
+    private static RouteCollection routeCollection;
+    private static Enviroment env;
+    private static final Lock collectionLock = new ReentrantLock();
+    private static final String ANSI_RED = "\u001B[31m";
+    private static final String ANSI_RESET = "\u001B[0m";
+
+    public static void main(String[] args) {
+        try {
+            for(String arg : args) {
+                String parameterName = arg.substring(0, arg.indexOf("="));
+                if(parameterName.equals("host")) {
+                    host = arg.substring(arg.indexOf("=") + 1);
+                }
+                if(parameterName.equals("port")) {
+                    port = Integer.parseInt(arg.substring(arg.indexOf("=") + 1));
+                }
+                if(parameterName.equals("db")) {
+                    db = arg.substring(arg.indexOf("=") + 1);;
+                }
+                if(parameterName.equals("user")) {
+                    username = arg;
+                }
+                if(parameterName.equals("password")) {
+                    password = arg;
+                }
+            }
+            connectionString = "jdbc:postgresql://" + host + ":" + port + "/" + db + "?sslmode=disable";
+        } catch (Exception e) {
+            System.err.println("Ошибка запуска приложения: " + e.getMessage());
+        }
+
+        try (Scanner scanner = new Scanner(System.in)) {
+            // Шаг 1: Получение параметров подключения к БД
+            System.out.println("=== Настройка подключения к PostgreSQL ===");
+            String dbUrl = connectionString;
+            String dbUser = username;
+            String dbPassword = password;
+
+            // Шаг 2: Инициализация подключения
+            initializeDatabase(scanner, dbUrl, dbUser, dbPassword);
+
+            // Шаг 3: Инициализация аутентификатора пользователей
+            UserAuthenticator userAuthenticator = new UserAuthenticator(dbManager);
+
+            // Шаг 4: Регистрация команд
+            HashMap<String, Command> commands = new HashMap<>();
+            registerCommands(commands, routeCollection, dbManager, userAuthenticator);
+
+            // Шаг 5: Создание окружения
+            env = new Enviroment(commands);
+
+            // Шаг 6: Запуск основного цикла
+            System.out.println("\n=== Route Manager ===");
+            System.out.println("Для регистрации введите команду register. Если у вас уже есть аккаунт, введите команду login");
+            runCommandLoop(scanner);
+
+        } catch (Exception e) {
+            System.err.println(ANSI_RED + "Фатальная ошибка: " + e.getMessage() + ANSI_RESET);
+            e.printStackTrace();
+        }
+    }
+
+    private static String getDbUrl(Scanner scanner) {
+        //System.out.print("URL подключения к БД [по умолчанию jdbc:postgresql://localhost:5432/route]: ");
+        String input =connectionString;
+        return input.isEmpty() ? "jdbc:postgresql://localhost:5432/route" : input;
+    }
+
+    private static String getInput(Scanner scanner, String prompt, boolean isPassword) {
+        System.out.print(prompt);
+        return scanner.nextLine().trim();
+    }
+
+
+    private static void initializeDatabase(Scanner scanner, String dbUrl, String dbUser, String dbPassword)
+            throws Exception {
+        while (true) {
+            try {
+                System.out.println("\nПопытка подключения к БД...");
+                dbManager = new DatabaseManager(dbUrl, dbUser, dbPassword);
+
+                // Проверка подключения
+                 if (!dbManager.testConnection()) {
+                    throw new Exception("Не удалось подключиться к БД");
+                  }
+
+                // Загрузка коллекции
+                routeCollection = new RouteCollection();
+                dbManager.loadCollection(routeCollection);
+                System.out.println("Успешное подключение к БД!");
+                break;
+
+            } catch (Exception e) {
+                System.err.println(ANSI_RED + "Ошибка подключения: " + e.getMessage() + ANSI_RESET);
+                System.out.println("Проверьте параметры подключения и повторите попытку");
+
+                System.out.print("Хотите изменить параметры подключения? (y/n): ");
+                if (!scanner.nextLine().trim().equalsIgnoreCase("y")) {
+                    throw new Exception("Не удалось подключиться к БД. Приложение завершает работу.");
+                }
+
+                // Повторный ввод параметров
+                dbUrl = getDbUrl(scanner);
+                dbUser = getInput(scanner, "Имя пользователя PostgreSQL: ", false);
+                dbPassword = getInput(scanner, "Пароль PostgreSQL: ", true);
+            }
+        }
+    }
+
+    public static void registerCommands(HashMap<String, Command> commands,
+                                        RouteCollection routeCollection,
+                                        DatabaseManager dbManager,
+                                        UserAuthenticator userAuthenticator) {
+
+        // --- НЕ ТРЕБУЮТ ЗАВИСИМОСТЕЙ ---
+        HelpCommand.register(commands);
+        ExitCommand.register(commands);
+        ExecuteScriptCommand.register(commands);
+
+        // --- ТРЕБУЮТ ТОЛЬКО КОЛЛЕКЦИЮ В ПАМЯТИ ---
+        InfoCommand.register(commands, routeCollection);
+        ShowCommand.register(commands, routeCollection);
+        AddCommand.register(commands, routeCollection);
+        UpdateCommand.register(commands, routeCollection);
+        RemoveByIdCommand.register(commands, routeCollection);
+        ClearCommand.register(commands, routeCollection);
+        AddIfMaxCommand.register(commands, routeCollection);
+        AddIfMinCommand.register(commands, routeCollection);
+        RemoveLowerCommand.register(commands, routeCollection);
+        MinByCreationDateCommand.register(commands, routeCollection);
+        CountLessThanDistanceCommand.register(commands, routeCollection);
+        PrintFieldAscendingDistanceCommand.register(commands, routeCollection);
+        LogOutCommand.register(commands,routeCollection,dbManager);
+
+        // --- ТРЕБУЮТ ДОСТУП К АУТЕНТИФИКАЦИИ (и, следовательно, к БД) ---
+        RegisterCommand.register(commands, userAuthenticator);
+        LoginCommand.register(commands, userAuthenticator);
+
+        // --- ТРЕБУЮТ ПРЯМОЙ ДОСТУП К БД ДЛЯ ЗАПИСИ ---
+        SaveCommand.register(commands, routeCollection, dbManager);
+        LogOutCommand.register(commands, routeCollection, dbManager);
+    }
+
+    private static void runCommandLoop(Scanner scanner) {
+        while (true) {
+            try {
+                System.out.print(env.getCurrentUser() != null ?
+                        env.getCurrentUser() + "> " : "> ");
+
+                String input = scanner.nextLine().trim();
+                if (input.isEmpty()) continue;
+
+                String[] parts = input.split("\\s+");
+                String commandName = parts[0];
+                String[] args = new String[parts.length - 1];
+                System.arraycopy(parts, 1, args, 0, args.length);
+
+
+                // Проверка авторизации для команд, кроме login и register
+                if (!commandName.equals("login") && !commandName.equals("register") &&
+                        env.getCurrentUser() == null) {
+                    System.out.println(ANSI_RED + "Ошибка: необходимо авторизоваться (команды login или register)"
+                            + ANSI_RESET);
+                    continue;
+                }
+
+                Command cmd = env.getCommands().get(commandName);
+                if (cmd == null) {
+                    System.out.println("Неизвестная команда. Введите 'help' для списка команд.");
+                    continue;
+                }
+
+                cmd.execute(env, System.out, System.in, args);
+
+            } catch (Exception e) {
+                System.err.println(ANSI_RED + "Ошибка: " + e.getMessage() + ANSI_RESET);
+            }
+        }
+    }
+}
+
